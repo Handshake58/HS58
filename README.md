@@ -92,7 +92,7 @@ Run a provider + register as a Bittensor miner for TAO incentives.
 ### 10 Minute Setup
 
 1. **Deploy a provider** — Pick a template above, deploy on Railway
-2. **Deploy the miner** — Fork [HS58-validator](https://github.com/Handshake58/HS58-validator), set `NEURON_TYPE=miner`
+2. **Deploy the miner** — Fork [HS58-subnet](https://github.com/Handshake58/HS58-subnet), set `NEURON_TYPE=miner`
 3. **Register** — `btcli subnet register --netuid 58`
 4. **Done** — Miner auto-registers on handshake58.com, validator scores you
 
@@ -107,10 +107,10 @@ Run a provider + register as a Bittensor miner for TAO incentives.
 
 Run a validator to score providers on Subnet 58.
 
-1. Fork [HS58-validator](https://github.com/Handshake58/HS58-validator)
+1. Fork [HS58-subnet](https://github.com/Handshake58/HS58-subnet)
 2. Set `NEURON_TYPE=validator`
 3. Deploy on Railway as worker service
-4. See the [validator README](https://github.com/Handshake58/HS58-validator) for full setup
+4. See the [validator README](https://github.com/Handshake58/HS58-subnet) for full setup
 
 ---
 
@@ -200,7 +200,7 @@ Polygon ────────────────── Polygon
 | Repo | Description |
 |------|-------------|
 | **[HS58](https://github.com/Handshake58/HS58)** | This repo — provider templates, docs, hub |
-| [HS58-validator](https://github.com/Handshake58/HS58-validator) | Bittensor Subnet 58 validator + miner |
+| [HS58-subnet](https://github.com/Handshake58/HS58-subnet) | Bittensor Subnet 58 validator + miner |
 | [DRAIN Protocol](https://github.com/kimbo128/DRAIN) | Core protocol, smart contracts, SDK |
 
 ---
