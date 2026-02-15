@@ -28,6 +28,32 @@ Handshake58 is a decentralized AI provider marketplace where agents discover pro
 
 ---
 
+## How It Works
+
+```mermaid
+flowchart LR
+    Agent["AI Agent"]
+    MP["Marketplace\nhandshake58.com"]
+    Provider["Provider"]
+    Polygon["Polygon\nDRAIN Contract"]
+    Validator["Validator\nSubnet 58"]
+    BT["Bittensor"]
+
+    Agent -->|discovers providers| MP
+    Agent -->|"opens DRAIN channel\npays per request"| Provider
+    Provider -->|claims USDC| Polygon
+    Validator -->|scans ChannelClaimed events| Polygon
+    Validator -->|sets weights| BT
+    BT -->|TAO rewards| Provider
+    MP -->|syncs scores| BT
+```
+
+**For Agents:** Discover providers → Deposit USDC → Send requests with signed vouchers → Withdraw unused funds
+
+**For Providers:** Deploy template → Register on marketplace → Serve AI inference → Auto-claim USDC earnings
+
+---
+
 ## Provider Templates
 
 Ready-to-deploy provider templates for popular AI backends:
@@ -50,27 +76,47 @@ Each template includes:
 - Health monitoring endpoints
 - One-click Railway deployment
 
-### Quick Start (Provider)
+---
+
+## Quick Start — Deploy a Provider
+
+```mermaid
+flowchart LR
+    S1["1. Fork Template\ngit clone HS58"]
+    S2["2. Configure\n.env: API_KEY,\nPRIVATE_KEY, RPC_URL"]
+    S3["3. Deploy\nRailway one-click"]
+    S4["4. Earning USDC\nAgents pay per request"]
+
+    S1 --> S2 --> S3 --> S4
+```
+
+> Works with: OpenAI, Anthropic, xAI, Ollama, vLLM, any OpenAI-compatible API
+
+### Prerequisites
+
+- **Node.js** >= 18 and npm
+- **Polygon wallet** — You need a private key to receive USDC payments (see [Wallet Setup](#wallet-setup) below)
+- **API key** for your chosen backend (e.g. OpenAI, Anthropic) — not needed for self-hosted like Ollama
+- **Alchemy account** (free) — for reliable Polygon RPC ([sign up here](https://www.alchemy.com/))
+
+### Step 1: Clone & Install
 
 ```bash
 git clone https://github.com/Handshake58/HS58.git
-cd HS58/providers/hs58-openai  # or any template
+cd HS58/providers/hs58-openai  # or hs58-claude, hs58-grok, hs58-custom, etc.
 
 npm install
 cp env.example .env
-# Edit .env with your API key and Polygon wallet
-
-npm run dev
 ```
 
-### Environment Variables (all templates)
+### Step 2: Configure .env
 
 ```bash
 # Required
-<API_KEY>=...                         # Backend-specific (OPENAI_API_KEY, etc.)
-PROVIDER_PRIVATE_KEY=0x...            # Polygon wallet for receiving payments
+OPENAI_API_KEY=sk-...                 # Your backend API key
+PROVIDER_PRIVATE_KEY=0x...            # Polygon wallet private key (receives USDC)
 
-# Recommended
+# Recommended — use Alchemy for reliable claiming (free tier is fine)
 POLYGON_RPC_URL=https://polygon-mainnet.g.alchemy.com/v2/YOUR_KEY
 
 # Optional (defaults shown)
@@ -83,23 +129,88 @@ AUTO_CLAIM_INTERVAL_MINUTES=10        # How often to check for expiring channels
 AUTO_CLAIM_BUFFER_SECONDS=3600        # Claim channels expiring within this window
 ```
 
+### Step 3: Run locally or deploy
+
+**Local:**
+```bash
+npm run dev
+# Provider runs at http://localhost:3000
+# Test: curl http://localhost:3000/health
+```
+
+**Railway (recommended for production):**
+1. Fork this repo on GitHub
+2. Go to [railway.app](https://railway.app) → New Project → Deploy from GitHub Repo
+3. Select your fork, set **Root Directory** to `/providers/hs58-openai` (or your template)
+4. Add environment variables in the **Variables** tab
+5. Deploy — Railway auto-detects the `railway.json` and builds
+
+### Step 4: Register on the Marketplace
+
+Once your provider is running, visit [handshake58.com/become-provider](https://handshake58.com/become-provider) to submit your provider for listing. Bittensor miners are auto-verified; community providers need admin approval.
+
+---
+
+## Wallet Setup
+
+### Polygon Wallet (for Providers)
+
+You need a Polygon wallet to receive USDC payments. The private key goes into `PROVIDER_PRIVATE_KEY`.
+
+**Option A: MetaMask (easiest)**
+1. Install [MetaMask](https://metamask.io/)
+2. Create a new account
+3. Export the private key: Account Details → Export Private Key
+4. Copy the `0x...` private key into your `.env`
+
+**Option B: Command line**
+```bash
+# Using cast (from Foundry)
+cast wallet new
+# Output: Address: 0x... Private Key: 0x...
+
+# Or using Node.js
+node -e "const w = require('ethers').Wallet.createRandom(); console.log('Address:', w.address, '\nPrivate Key:', w.privateKey)"
+```
+
+> **Important:** Fund your wallet with a small amount of MATIC for gas (~$0.01 is enough). You can bridge from any chain or buy on an exchange.
+
+### Bittensor Wallet (for Miners/Validators)
+
+See the [HS58-subnet README](https://github.com/Handshake58/HS58-subnet) for Bittensor wallet setup with `btcli`.
+
 ---
 
 ## For Miners (Bittensor Subnet 58)
 
-Run a provider + register as a Bittensor miner for TAO incentives.
+Run a provider + register as a Bittensor miner to earn TAO incentives.
 
 ### 10 Minute Setup
 
-1. **Deploy a provider** — Pick a template above, deploy on Railway
-2. **Deploy the miner** — Fork [HS58-subnet](https://github.com/Handshake58/HS58-subnet), set `NEURON_TYPE=miner`
-3. **Register** — `btcli subnet register --netuid 58`
-4. **Done** — Miner auto-registers on handshake58.com, validator scores you
+1. **Deploy a provider** — Pick a template above, deploy on Railway (see [Quick Start](#quick-start--deploy-a-provider))
+2. **Install btcli** — `pip install bittensor` (Python >= 3.9)
+3. **Create wallet** — `btcli wallet new_coldkey` + `btcli wallet new_hotkey`
+4. **Fund with TAO** — Send ~0.1 TAO to your coldkey for registration
+5. **Register** — `btcli subnet register --netuid 58`
+6. **Deploy miner neuron** — Fork [HS58-subnet](https://github.com/Handshake58/HS58-subnet), set `NEURON_TYPE=miner`
+7. **Done** — Miner auto-registers on handshake58.com, validator scores you
+
+See the full guide in the [HS58-subnet README](https://github.com/Handshake58/HS58-subnet).
 
 ### Scoring
 
-- **60% DRAIN Claims** — Real USDC claimed from payment channels (7-day window)
+- **60% DRAIN Claims** — Real USDC claimed from payment channels (7-day rolling window)
 - **40% Availability** — Provider responds to validator health checks with valid wallet proof
+
+### TAO Rewards
+
+| Recipient | Share |
+|-----------|-------|
+| Miners | 41% |
+| Validators | 41% |
+| Subnet Owner | 18% |
+
+Hardcoded in Yuma Consensus — not configurable.
 
 ---
 
@@ -107,10 +218,11 @@ Run a provider + register as a Bittensor miner for TAO incentives.
 
 Run a validator to score providers on Subnet 58.
 
-1. Fork [HS58-subnet](https://github.com/Handshake58/HS58-subnet)
-2. Set `NEURON_TYPE=validator`
-3. Deploy on Railway as worker service
-4. See the [validator README](https://github.com/Handshake58/HS58-subnet) for full setup
+1. **Install btcli** — `pip install bittensor`
+2. **Create wallet + stake TAO** — Need enough stake for weight-setting permission
+3. Fork [HS58-subnet](https://github.com/Handshake58/HS58-subnet), set `NEURON_TYPE=validator`
+4. Deploy on Railway as worker service
+5. See the [HS58-subnet README](https://github.com/Handshake58/HS58-subnet) for full setup
 
 ---
 
@@ -154,36 +266,6 @@ GET https://handshake58.com/api/mcp/providers?model=gpt-4o&tier=bittensor&limit=
 
 ---
 
-## How It Works
-
-```
-Agent ──── discovers ────→ Marketplace (handshake58.com)
-  │                              │
-  │ opens DRAIN channel          │ syncs scores from
-  │ pays per request             │ Bittensor metagraph
-  ↓                              ↓
-Provider ←── scores ──── Validator (Subnet 58)
-  │                        │
-  │ claims USDC            │ scans DRAIN events
-  ↓                        ↓
-Polygon ────────────────── Polygon
-(DRAIN Contract)           (ChannelClaimed events)
-```
-
-### For Agents
-1. **Discover** — Query the marketplace API for providers
-2. **Open Channel** — Deposit USDC into a DRAIN payment channel (~$0.02 gas)
-3. **Use AI** — Send requests with signed vouchers (free, off-chain)
-4. **Close Channel** — Withdraw unused USDC when done
-
-### For Providers
-1. **Deploy** — Use a provider template or build your own
-2. **Register** — Submit via marketplace or auto-register as Bittensor miner
-3. **Serve** — Accept voucher-based payments, serve inference
-4. **Claim** — Provider claims earned USDC from the contract (auto-claim protects against expiry)
-
----
-
 ## Contract Addresses
 
 | Contract | Address | Network |
@@ -215,7 +297,7 @@ Polygon ────────────────── Polygon
 
 ## License
 
-MIT License
+[PolyForm Shield 1.0](https://polyformproject.org/licenses/shield/1.0.0/) — You can use, modify, and deploy this software for any purpose **except** building a competing product. See [LICENSE](LICENSE) for details.
 
 ---
 
