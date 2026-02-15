@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>The Agent Economy Thesis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,300;1,9..144,400;1,9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:        #090b0e;
+  --ink1:       #0f1114;
+  --ink2:       #161920;
+  --ink3:       #1c2027;
+  --rule:       rgba(255,255,255,.06);
+  --rule-hi:    rgba(255,255,255,.11);
+  --text:       #a8b2bd;
+  --text-hi:    #cdd2d8;
+  --text-max:   #f2f4f6;
+  --green:      #3dffa0;
+  --green-dim:  rgba(61,255,160,.07);
+  --green-mid:  rgba(61,255,160,.15);
+  --green-glow: rgba(61,255,160,.3);
+  --amber:      #f0c35a;
+  --amber-dim:  rgba(240,195,90,.08);
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+
+body {
+  background:var(--ink);
+  color:var(--text);
+  font-family:'Fraunces',serif;
+  font-size:15px;
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+/* grain */
+body::after {
+  content:'';
+  position:fixed;inset:0;
+  pointer-events:none;z-index:9999;
+  opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ─── SCROLL PROGRESS ─── */
+#progress {
+  position:fixed;top:0;left:0;
+  height:2px;width:0%;
+  background:var(--green);
+  box-shadow:0 0 8px var(--green-glow);
+  z-index:100;
+  transition:width .15s linear;
+}
+
+/* ─── NAV ─── */
+.nav {
+  position:fixed;top:0;left:0;right:0;z-index:90;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 48px;
+  background:rgba(9,11,14,.75);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  border-bottom:1px solid transparent;
+  transition:border-color .4s;
+}
+.nav.scrolled{border-color:var(--rule);}
+.nav-left{display:flex;align-items:center;gap:10px;}
+.nav-dots{display:flex;gap:5px;}
+.nav-dots span{width:9px;height:9px;border-radius:50%;}
+.nav-dots .r{background:#e85d5d;}
+.nav-dots .y{background:var(--amber);}
+.nav-dots .g{background:var(--green);}
+.nav-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);letter-spacing:1px;}
+.nav-right{display:flex;gap:28px;}
+.nav-right a{font-size:12px;color:var(--text);text-decoration:none;letter-spacing:.5px;transition:color .3s;}
+.nav-right a:hover{color:var(--text-max);}
+
+/* ─── COVER ─── */
+.cover {
+  position:relative;
+  min-height:100vh;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:140px 24px 80px;
+  text-align:center;
+  overflow:hidden;
+}
+/* ambient glow */
+.cover::before {
+  content:'';
+  position:absolute;
+  top:35%;left:50%;
+  transform:translate(-50%,-50%);
+  width:860px;height:860px;
+  background:radial-gradient(ellipse, rgba(61,255,160,.045) 0%, transparent 68%);
+  pointer-events:none;
+}
+/* subtle grid */
+.cover::after {
+  content:'';
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(var(--rule) 1px,transparent 1px),
+    linear-gradient(90deg,var(--rule) 1px,transparent 1px);
+  background-size:56px 56px;
+  pointer-events:none;
+  mask-image:radial-gradient(ellipse 60% 55% at 50% 45%,black 20%,transparent 75%);
+  -webkit-mask-image:radial-gradient(ellipse 60% 55% at 50% 45%,black 20%,transparent 75%);
+}
+
+.cover-eyebrow {
+  position:relative;z-index:1;
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;color:var(--green);
+  letter-spacing:3px;text-transform:uppercase;
+  margin-bottom:36px;
+  display:flex;align-items:center;gap:10px;
+  opacity:0;animation:coverIn .9s .15s ease forwards;
+}
+.cover-eyebrow .line {
+  width:28px;height:1px;background:var(--green-mid);
+}
+
+.cover-title {
+  position:relative;z-index:1;
+  font-family:'Exo 2',sans-serif;
+  font-weight:800;
+  font-size:clamp(56px,9vw,94px);
+  line-height:1.0;
+  color:var(--text-max);
+  letter-spacing:-2px;
+  opacity:0;animation:coverIn .9s .3s ease forwards;
+}
+.cover-title em {
+  font-style:normal;font-weight:700;
+  color:var(--green);
+}
+
+.cover-subtitle {
+  position:relative;z-index:1;
+  font-family:'Fraunces',serif;
+  font-size:20px;font-weight:400;
+  color:var(--text-hi);
+  margin-top:28px;font-style:italic;
+  line-height:1.5;
+  opacity:0;animation:coverIn .9s .5s ease forwards;
+}
+
+.cover-meta {
+  position:relative;z-index:1;
+  margin-top:72px;
+  display:flex;gap:48px;
+  opacity:0;animation:coverIn .9s .7s ease forwards;
+}
+.cover-meta-item{text-align:center;}
+.cover-meta-label{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
+.cover-meta-val{font-family:'Exo 2',sans-serif;font-size:16px;color:var(--text-hi);font-weight:600;}
+
+.cover-scroll {
+  position:absolute;bottom:40px;left:50%;transform:translateX(-50%);z-index:1;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  opacity:0;animation:coverIn .9s .95s ease forwards;
+}
+.cover-scroll span{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text);letter-spacing:2px;}
+.cover-scroll-line{width:1px;height:36px;background:linear-gradient(to bottom,var(--green-mid),transparent);animation:scrollPulse 2s ease-in-out infinite;}
+@keyframes scrollPulse{0%,100%{opacity:.5;transform:scaleY(1);}50%{opacity:1;transform:scaleY(1.15);}}
+
+@keyframes coverIn{from{opacity:0;transform:translateY(18px);}to{opacity:1;transform:translateY(0);}}
+
+/* ─── DOCUMENT BODY ─── */
+.doc {
+  max-width:720px;
+  margin:0 auto;
+  padding:100px 32px 160px;
+}
+
+/* ─── SECTION ─── */
+.section {
+  margin-bottom:100px;
+  opacity:0;
+  transform:translateY(28px);
+  transition:opacity .8s cubic-bezier(.22,1,.36,1), transform .8s cubic-bezier(.22,1,.36,1);
+}
+.section.visible{opacity:1;transform:translateY(0);}
+
+/* section header */
+.section-num {
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;color:var(--green);
+  letter-spacing:2px;
+  margin-bottom:16px;
+  display:flex;align-items:center;gap:12px;
+}
+.section-num .num-line{width:20px;height:1px;background:var(--green-mid);}
+
+.section-title {
+  font-family:'Exo 2',sans-serif;
+  font-weight:700;
+  font-size:clamp(28px,4vw,38px);
+  color:var(--text-max);
+  line-height:1.18;
+  letter-spacing:-0.5px;
+  margin-bottom:32px;
+}
+.section-title em{font-style:normal;color:var(--green);font-weight:600;}
+
+/* body text */
+p {
+  color:var(--text);
+  margin-bottom:20px;
+  font-size:17px;
+  line-height:1.85;
+}
+p + p{margin-top:4px;}
+
+/* ─── PULL QUOTE ─── */
+.pull-quote {
+  border-left:2px solid var(--green);
+  margin:44px 0;
+  padding:8px 0 8px 32px;
+  position:relative;
+}
+.pull-quote::before {
+  content:'"';
+  font-family:'Exo 2',sans-serif;
+  font-size:56px;font-weight:800;
+  color:var(--green-mid);
+  position:absolute;
+  top:-10px;left:12px;
+  line-height:1;
+}
+.pull-quote p {
+  font-family:'Fraunces',serif;
+  font-size:21px;font-weight:400;
+  font-style:italic;
+  color:var(--text-hi);
+  line-height:1.55;
+  margin-bottom:0;
+}
+
+/* ─── NUMBERED ITEMS (problems / failed solutions) ─── */
+.item-list{margin:36px 0;}
+.item {
+  display:grid;
+  grid-template-columns:44px 1fr;
+  gap:0 24px;
+  padding:28px 0;
+  border-top:1px solid var(--rule);
+  align-items:start;
+}
+.item:last-child{border-bottom:1px solid var(--rule);}
+.item-num {
+  font-family:'Exo 2',sans-serif;
+  font-size:22px;font-weight:700;
+  color:var(--green);
+  line-height:1.3;
+}
+.item-title {
+  font-family:'Exo 2',sans-serif;
+  font-size:17px;font-weight:600;
+  color:var(--text-max);
+  margin-bottom:8px;
+  line-height:1.3;
+  letter-spacing:-0.2px;
+}
+.item p{margin-bottom:0;font-size:16px;}
+
+/* ─── REQUIREMENTS GRID ─── */
+.req-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:1px;
+  background:var(--rule);
+  border:1px solid var(--rule);
+  border-radius:8px;
+  overflow:hidden;
+  margin:36px 0;
+}
+.req-card {
+  background:var(--ink1);
+  padding:32px 28px;
+  transition:background .3s;
+}
+.req-card:hover{background:var(--ink2);}
+.req-card:nth-child(5){grid-column:span 2;}
+
+.req-header{display:flex;align-items:center;gap:14px;margin-bottom:12px;}
+.req-num {
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;color:var(--green);
+  background:var(--green-dim);
+  padding:4px 10px;border-radius:4px;
+  letter-spacing:1px;
+}
+.req-title {
+  font-family:'Exo 2',sans-serif;
+  font-size:17px;font-weight:600;
+  color:var(--text-max);
+}
+.req-card p{font-size:15px;margin-bottom:0;line-height:1.8;}
+
+/* ─── PAYMENT CHANNEL STEPS ─── */
+.steps {
+  margin:40px 0;
+  position:relative;
+  padding-left:40px;
+}
+.steps::before {
+  content:'';
+  position:absolute;left:15px;top:8px;bottom:8px;
+  width:1px;background:linear-gradient(to bottom,var(--green-mid),var(--rule));
+}
+.step {
+  position:relative;
+  padding:0 0 32px;
+}
+.step:last-child{padding-bottom:0;}
+.step-dot {
+  position:absolute;
+  left:-40px;top:4px;
+  width:31px;height:31px;
+  border-radius:50%;
+  background:var(--ink1);
+  border:2px solid var(--green-mid);
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color .3s, box-shadow .3s;
+}
+.step:hover .step-dot{border-color:var(--green);box-shadow:0 0 12px var(--green-glow);}
+.step-dot span{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--green);font-weight:500;}
+.step-label {
+  font-family:'Exo 2',sans-serif;
+  font-size:17px;font-weight:600;color:var(--text-max);
+  margin-bottom:6px;
+  letter-spacing:-0.2px;
+}
+.step p{font-size:16px;margin-bottom:0;}
+
+/* ─── ARCHITECTURE VISUAL ─── */
+.arch-wrap {
+  background:var(--ink1);
+  border:1px solid var(--rule);
+  border-radius:10px;
+  overflow:hidden;
+  margin:40px 0;
+}
+.arch-titlebar {
+  display:flex;align-items:center;gap:8px;
+  padding:14px 20px;
+  border-bottom:1px solid var(--rule);
+  background:var(--ink2);
+}
+.arch-titlebar .dots{display:flex;gap:6px;}
+.arch-titlebar .dots span{width:10px;height:10px;border-radius:50%;}
+.arch-titlebar .dots .r{background:#e85d5d;}
+.arch-titlebar .dots .y{background:var(--amber);}
+.arch-titlebar .dots .g{background:var(--green);}
+.arch-titlebar .arch-title-text{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);margin-left:6px;}
+
+.arch-body {
+  padding:40px 36px;
+  display:flex;flex-direction:column;align-items:center;
+  gap:0;
+}
+
+/* top row: agent + provider */
+.arch-top-row {
+  display:flex;align-items:center;width:100%;justify-content:center;gap:0;
+  margin-bottom:28px;
+}
+.arch-box {
+  background:var(--ink2);
+  border:1px solid var(--rule-hi);
+  border-radius:8px;
+  padding:18px 32px;
+  text-align:center;
+  min-width:110px;
+  transition:border-color .3s;
+}
+.arch-box:hover{border-color:var(--green-mid);}
+.arch-box-label{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;}
+.arch-box-name{font-family:'Exo 2',sans-serif;font-size:16px;font-weight:600;color:var(--text-max);}
+
+/* flow connector */
+.arch-flow {
+  flex:1;max-width:180px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:0 8px;
+}
+.arch-flow-label{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--green);letter-spacing:1px;text-transform:uppercase;}
+.arch-flow-label2{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text);letter-spacing:1px;text-transform:uppercase;}
+.arch-flow-line{width:100%;height:1px;background:var(--green-mid);position:relative;}
+.arch-flow-line::after{content:'▸';position:absolute;right:-2px;top:-8px;color:var(--green);font-size:12px;}
+.arch-flow-line2{width:100%;height:1px;background:var(--rule-hi);position:relative;}
+.arch-flow-line2::after{content:'◂';position:absolute;left:-2px;top:-8px;color:var(--text);font-size:12px;}
+
+/* layers */
+.arch-connector{width:1px;height:24px;background:linear-gradient(to bottom,var(--green-mid),var(--rule));margin:0 auto;}
+.arch-layer {
+  width:100%;
+  border:1px solid var(--rule);
+  border-radius:8px;
+  overflow:hidden;
+  transition:border-color .4s;
+}
+.arch-layer:hover{border-color:var(--green-mid);}
+.arch-layer-head {
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;
+  background:var(--ink2);
+  border-bottom:1px solid var(--rule);
+}
+.arch-layer-name{font-family:'Exo 2',sans-serif;font-size:15px;font-weight:600;color:var(--text-max);}
+.arch-layer-tag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;padding:3px 9px;border-radius:3px;}
+.arch-layer-tag.green{background:var(--green-dim);color:var(--green);}
+.arch-layer-tag.amber{background:var(--amber-dim);color:var(--amber);}
+.arch-layer-body{padding:18px 20px;}
+.arch-layer-body p{font-size:15px;margin-bottom:0;line-height:1.8;}
+
+/* ─── IMPLICATIONS LIST ─── */
+.impl-list{margin:36px 0;}
+.impl-item{
+  padding:28px 0;
+  border-top:1px solid var(--rule);
+}
+.impl-item:last-child{border-bottom:1px solid var(--rule);}
+.impl-title{
+  font-family:'Exo 2',sans-serif;
+  font-size:18px;font-weight:600;color:var(--text-max);
+  margin-bottom:8px;
+  letter-spacing:-0.2px;
+}
+.impl-item p{font-size:16px;margin-bottom:0;}
+
+/* ─── TECHNICAL APPENDIX ─── */
+.appendix {
+  background:var(--ink1);
+  border:1px solid var(--rule);
+  border-radius:10px;
+  overflow:hidden;
+  margin:36px 0;
+}
+.appendix-head {
+  padding:16px 24px;
+  background:var(--ink2);
+  border-bottom:1px solid var(--rule);
+  display:flex;align-items:center;gap:10px;
+}
+.appendix-head .dots{display:flex;gap:6px;}
+.appendix-head .dots span{width:9px;height:9px;border-radius:50%;}
+.appendix-head .dots .r{background:#e85d5d;}
+.appendix-head .dots .y{background:var(--amber);}
+.appendix-head .dots .g{background:var(--green);}
+.appendix-head .app-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);margin-left:4px;}
+
+.appendix-row {
+  display:grid;grid-template-columns:140px 1fr;
+  gap:0;
+}
+.appendix-row + .appendix-row{border-top:1px solid var(--rule);}
+.app-key{padding:14px 24px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);background:var(--ink2);border-right:1px solid var(--rule);letter-spacing:.5px;}
+.app-val{padding:14px 24px;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--green);font-weight:500;}
+.app-val.dim{color:var(--text-hi);}
+
+/* ─── EPILOGUE SIGN ─── */
+.epilogue-sign{margin-top:40px;}
+.epilogue-sign .sign-name{font-family:'Fraunces',serif;font-size:19px;font-weight:400;color:var(--text-max);font-style:italic;}
+.epilogue-sign .sign-role{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);margin-top:4px;letter-spacing:.5px;}
+
+/* ─── FOOTER ─── */
+.footer {
+  border-top:1px solid var(--rule);
+  padding:40px 32px;
+  max-width:720px;margin:0 auto;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.footer-left{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text);}
+.footer-right{display:flex;gap:20px;}
+.footer-right a{font-size:12px;color:var(--text);text-decoration:none;transition:color .3s;}
+.footer-right a:hover{color:var(--green);}
+
+/* ─── BOLD HIGHLIGHT ─── */
+strong {
+  color:var(--text-hi);
+  font-weight:500;
+}
+
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:var(--ink);}
+::-webkit-scrollbar-thumb{background:var(--rule-hi);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.18);}
+
+/* responsive */
+@media(max-width:640px){
+  .nav{padding:16px 20px;}
+  .nav-right{display:none;}
+  .doc{padding:80px 20px 120px;}
+  .req-grid{grid-template-columns:1fr;}
+  .req-card:nth-child(5){grid-column:span 1;}
+  .cover-meta{flex-direction:column;gap:20px;}
+  .arch-top-row{flex-direction:column;gap:12px;}
+  .arch-flow{flex-direction:row;max-width:100%;padding:8px 0;}
+}
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<!-- NAV -->
+<nav class="nav" id="nav">
+  <div class="nav-left">
+    <div class="nav-dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+    <span class="nav-label">agent_economy.thesis</span>
+  </div>
+  <div class="nav-right">
+    <a href="#premise">Premise</a>
+    <a href="#problem">Problem</a>
+    <a href="#solution">Solution</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#implications">Implications</a>
+  </div>
+</nav>
+
+<!-- COVER -->
+<section class="cover">
+  <div class="cover-eyebrow"><span class="line"></span>Executive Thesis · February 2026<span class="line"></span></div>
+  <h1 class="cover-title">The<br><em>Agent</em><br>Economy</h1>
+  <p class="cover-subtitle">Why AI agents will become economic actors — and what infrastructure they need to get there.</p>
+  <div class="cover-meta">
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Author</div>
+      <div class="cover-meta-val">Artur Markus</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Protocol</div>
+      <div class="cover-meta-val">DRAIN v1.0</div>
+    </div>
+    <div class="cover-meta-item">
+      <div class="cover-meta-label">Network</div>
+      <div class="cover-meta-val">Polygon · Bittensor</div>
+    </div>
+  </div>
+  <div class="cover-scroll"><span>scroll</span><div class="cover-scroll-line"></div></div>
+</section>
+
+<!-- ═══════════════════════════════════════════ -->
+<!--  DOCUMENT                                   -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="doc">
+
+  <!-- I. THE PREMISE -->
+  <div class="section" id="premise">
+    <div class="section-num"><span class="num-line"></span>I</div>
+    <h2 class="section-title">The Premise</h2>
+    <p>We are witnessing the emergence of a new class of economic participant: the autonomous AI agent.</p>
+    <p>Not chatbots. Not assistants waiting for commands. Agents that perceive, decide, and act — continuously, independently, in pursuit of goals their operators define.</p>
+    <p>These agents are already among us. They monitor markets, generate content, manage systems, write code, and coordinate with other agents. They operate on timescales humans cannot match, process information humans cannot absorb, and maintain consistency humans cannot sustain.</p>
+
+    <div class="pull-quote">
+      <p>An agent that cannot transact is an agent that cannot be autonomous. It remains a puppet — sophisticated, perhaps, but still dependent on a human hand to open every door that costs money to walk through.</p>
+    </div>
+
+    <p>But they cannot pay for things.</p>
+    <p>This is the bottleneck. Not intelligence. Not capability. Not even trust. The bottleneck is <strong>economic infrastructure</strong>.</p>
+    <p>The Agent Economy begins when that changes.</p>
+  </div>
+
+  <!-- II. THE PROBLEM -->
+  <div class="section" id="problem">
+    <div class="section-num"><span class="num-line"></span>II</div>
+    <h2 class="section-title">The Problem</h2>
+    <p>Today's payment infrastructure was built for humans.</p>
+    <p>Credit cards require identity verification, physical addresses, legal personhood. Bank accounts require signatures, social security numbers, proof of residence. Even cryptocurrency exchanges demand KYC.</p>
+    <p>None of these systems know what to do with an agent.</p>
+    <p>The result is a strange asymmetry: we have built machines capable of superhuman reasoning, but they must ask permission every time they need to spend $0.001 on an API call.</p>
+    <p>This creates three fundamental problems:</p>
+
+    <div class="item-list">
+      <div class="item">
+        <div class="item-num">1</div>
+        <div>
+          <div class="item-title">The Dependency Problem</div>
+          <p>Every payment an agent makes must be pre-authorized or mediated by a human. This defeats the purpose of autonomy. An agent that must wake its operator for every transaction is not autonomous — it's an elaborate notification system.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-num">2</div>
+        <div>
+          <div class="item-title">The Granularity Problem</div>
+          <p>Agents operate at different economic scales than humans. A human might make 10 purchases a day. An agent might make 10,000 API calls per hour. Traditional payment systems — built for $50 average transactions — collapse under the weight of $0.0001 micropayments. The fees alone would exceed the transaction value.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-num">3</div>
+        <div>
+          <div class="item-title">The Trust Problem</div>
+          <p>When Agent A wants to pay Agent B for a service, how does A know B will deliver? How does B know A will pay? Humans solve this through reputation, contracts, and legal systems. Agents need something faster, more deterministic, more machine-native.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- III. THE FAILED SOLUTIONS -->
+  <div class="section">
+    <div class="section-num"><span class="num-line"></span>III</div>
+    <h2 class="section-title">The Failed<br>Solutions</h2>
+    <p>The market has attempted several solutions. All have failed.</p>
+
+    <div class="item-list">
+      <div class="item">
+        <div class="item-num" style="color:var(--amber);">—</div>
+        <div>
+          <div class="item-title">Subscriptions and Prepayment</div>
+          <p>"Just buy credits in advance." This shifts the trust problem without solving it. The agent (or its operator) must trust the provider with locked capital. No refunds for unused capacity. No flexibility for variable demand. No composability across providers.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-num" style="color:var(--amber);">—</div>
+        <div>
+          <div class="item-title">Platform Tokens</div>
+          <p>"Create a token for your ecosystem." This fragments liquidity. Every platform becomes an island. Agents must hold dozens of tokens to interact with dozens of services. Exchange friction consumes value. The solution becomes the problem.</p>
+        </div>
+      </div>
+      <div class="item">
+        <div class="item-num" style="color:var(--amber);">—</div>
+        <div>
+          <div class="item-title">Human-Mediated Payments</div>
+          <p>"Just have the human approve transactions." This is not a solution — it's an admission of defeat. It accepts that agents cannot be autonomous. It constrains the agent economy to whatever scale human attention can sustain.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IV. THE REQUIREMENTS -->
+  <div class="section">
+    <div class="section-num"><span class="num-line"></span>IV</div>
+    <h2 class="section-title">The Requirements</h2>
+    <p>A true payment infrastructure for agents must satisfy five requirements:</p>
+
+    <div class="req-grid">
+      <div class="req-card">
+        <div class="req-header"><span class="req-num">01</span><span class="req-title">Permissionless Access</span></div>
+        <p>Any agent must be able to participate without identity verification, legal status, or human co-signing. The only requirement should be possession of funds.</p>
+      </div>
+      <div class="req-card">
+        <div class="req-header"><span class="req-num">02</span><span class="req-title">Micropayment Capable</span></div>
+        <p>Transaction costs must be negligible relative to transaction values. An agent must be able to pay $0.0001 without spending $0.01 in fees.</p>
+      </div>
+      <div class="req-card">
+        <div class="req-header"><span class="req-num">03</span><span class="req-title">Instant Settlement</span></div>
+        <p>Agents operate at machine speed. Payment confirmation cannot take minutes, let alone days. Settlement must be effectively instantaneous.</p>
+      </div>
+      <div class="req-card">
+        <div class="req-header"><span class="req-num">04</span><span class="req-title">Trustless Execution</span></div>
+        <p>Neither party should need to trust the other. The system itself must guarantee that payment and delivery are atomic — either both happen, or neither does.</p>
+      </div>
+      <div class="req-card">
+        <div class="req-header"><span class="req-num">05</span><span class="req-title">Programmable Integration</span></div>
+        <p>Agents interact through APIs and protocols, not user interfaces. Payment must be a function call, not a form submission.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- V. THE SOLUTION -->
+  <div class="section" id="solution">
+    <div class="section-num"><span class="num-line"></span>V</div>
+    <h2 class="section-title">The Solution:<br><em>Payment Channels</em></h2>
+    <p>The answer is not new. The cryptographic primitives have existed for years. What's new is the application.</p>
+    <p><strong>Payment channels</strong> allow two parties to conduct unlimited transactions off-chain, with only two on-chain operations: opening the channel and closing it.</p>
+    <p>Here's how it works:</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-dot"><span>1</span></div>
+        <div class="step-label">Open</div>
+        <p>An agent deposits funds into a smart contract, creating a channel with a provider. This is the only blockchain transaction required — typically costing a few cents.</p>
+      </div>
+      <div class="step">
+        <div class="step-dot"><span>2</span></div>
+        <div class="step-label">Transact</div>
+        <p>For each service request, the agent signs a payment voucher. This voucher is cryptographically verifiable but does not touch the blockchain. The provider can validate the voucher instantly and deliver the service. Thousands of vouchers can be exchanged per second, each costing nothing.</p>
+      </div>
+      <div class="step">
+        <div class="step-dot"><span>3</span></div>
+        <div class="step-label">Close</div>
+        <p>When the relationship ends, either party can close the channel. The smart contract settles the final balance based on the latest voucher. Unused funds return to the agent immediately.</p>
+      </div>
+    </div>
+
+    <p>This architecture satisfies all five requirements: <strong>Permissionless</strong> — only a wallet is needed. <strong>Micropayments</strong> — vouchers cost nothing to create or verify. <strong>Instant</strong> — voucher validation takes milliseconds. <strong>Trustless</strong> — the smart contract enforces settlement. <strong>Programmable</strong> — everything is an API call.</p>
+  </div>
+
+  <!-- VI. THE TRUST LAYER -->
+  <div class="section">
+    <div class="section-num"><span class="num-line"></span>VI</div>
+    <h2 class="section-title">The Trust Layer</h2>
+    <p>Payment channels solve the payment problem. But the Agent Economy requires more: agents must be able to discover reliable providers and avoid fraudulent ones.</p>
+    <p>In traditional markets, this is handled by reputation systems, reviews, and legal recourse. Agents need something more robust — something that cannot be gamed by fake reviews or manipulated ratings.</p>
+    <p>The answer is <strong>cryptoeconomic validation</strong>.</p>
+    <p>Imagine a network of validators — independent parties with economic stake — whose job is to verify that providers actually deliver what they promise. These validators continuously test providers: send requests, measure responses, compare results against claims.</p>
+    <p>Providers who deliver accurately earn the right to serve agents. Providers who fail lose their stake and their access.</p>
+
+    <div class="pull-quote">
+      <p>This is not reputation by opinion. This is reputation by proof.</p>
+    </div>
+
+    <p>When an agent queries this network, it receives not a star rating, but a statistically robust measure of provider reliability — backed by economic guarantees from validators who have skin in the game.</p>
+  </div>
+
+  <!-- VII. THE ARCHITECTURE -->
+  <div class="section" id="architecture">
+    <div class="section-num"><span class="num-line"></span>VII</div>
+    <h2 class="section-title">The Architecture</h2>
+    <p>Combining payment channels with cryptoeconomic validation yields a complete infrastructure for the Agent Economy:</p>
+
+    <div class="arch-wrap">
+      <div class="arch-titlebar">
+        <div class="dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+        <span class="arch-title-text">agent_economy.architecture</span>
+      </div>
+      <div class="arch-body">
+        <!-- Agent <-> Provider -->
+        <div class="arch-top-row">
+          <div class="arch-box">
+            <div class="arch-box-label">Consumer</div>
+            <div class="arch-box-name">Agent</div>
+          </div>
+          <div class="arch-flow">
+            <div class="arch-flow-label">Vouchers</div>
+            <div class="arch-flow-line"></div>
+            <div class="arch-flow-label2">Services</div>
+            <div class="arch-flow-line2"></div>
+          </div>
+          <div class="arch-box">
+            <div class="arch-box-label">Supplier</div>
+            <div class="arch-box-name">Provider</div>
+          </div>
+        </div>
+
+        <div class="arch-connector"></div>
+
+        <!-- Settlement -->
+        <div class="arch-layer">
+          <div class="arch-layer-head">
+            <span class="arch-layer-name">Settlement Layer</span>
+            <span class="arch-layer-tag green">Smart Contracts · L2</span>
+          </div>
+          <div class="arch-layer-body">
+            <p>The <strong>Settlement Layer</strong> handles the financial primitives: channel creation, voucher verification, and final settlement. Built on a low-cost blockchain (an L2), it provides the security of decentralization with the efficiency of modern infrastructure.</p>
+          </div>
+        </div>
+
+        <div class="arch-connector"></div>
+
+        <!-- Validation -->
+        <div class="arch-layer">
+          <div class="arch-layer-head">
+            <span class="arch-layer-name">Validation Layer</span>
+            <span class="arch-layer-tag amber">Decentralized Validators</span>
+          </div>
+          <div class="arch-layer-body">
+            <p>The <strong>Validation Layer</strong> handles trust: a decentralized network that continuously verifies provider quality and publishes reliability metrics. Validators stake capital, making false attestations economically irrational.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p>Together, these layers enable something previously impossible: <strong>agents transacting with agents, at scale, without human intervention</strong>.</p>
+  </div>
+
+  <!-- VIII. THE IMPLICATIONS -->
+  <div class="section" id="implications">
+    <div class="section-num"><span class="num-line"></span>VIII</div>
+    <h2 class="section-title">The Implications</h2>
+    <p>When agents can pay for services autonomously, the nature of software changes.</p>
+
+    <div class="impl-list">
+      <div class="impl-item">
+        <div class="impl-title">Agents become composable.</div>
+        <p>Today, every integration is a project. Someone must negotiate terms, implement authentication, handle billing. In the Agent Economy, an agent can discover a service, verify its reliability, open a channel, and start transacting — all programmatically, all in seconds.</p>
+      </div>
+      <div class="impl-item">
+        <div class="impl-title">Agents become specialists.</div>
+        <p>When agents can easily pay other agents, there's no need for every agent to do everything. Agents can specialize — one agent for web research, another for code review, another for image generation — and purchase capabilities from each other as needed.</p>
+      </div>
+      <div class="impl-item">
+        <div class="impl-title">Agents become businesses.</div>
+        <p>An agent that can receive payments can generate revenue. An agent that generates revenue can fund its own operations. We will see agents that are economically self-sustaining — entities that pay for their own compute, their own storage, their own API calls, from income they generate through services they provide.</p>
+      </div>
+    </div>
+
+    <p>This is not science fiction. The components exist today. The only question is assembly.</p>
+  </div>
+
+  <!-- IX. THE TRANSITION -->
+  <div class="section">
+    <div class="section-num"><span class="num-line"></span>IX</div>
+    <h2 class="section-title">The Transition</h2>
+    <p>We are not proposing to replace the human economy. We are proposing to extend it.</p>
+    <p>The Agent Economy is a layer that sits alongside human economic activity. Agents will transact with agents. But agents will also transact with humans, and humans will transact through agents.</p>
+    <p>The boundaries will blur. An agent might earn income by providing services to other agents, then spend that income on services from human providers. A human might delegate purchasing decisions to an agent, which autonomously finds the best prices across agent-operated marketplaces.</p>
+
+    <div class="pull-quote">
+      <p>The Agent Economy doesn't replace human judgment — it augments human reach.</p>
+    </div>
+
+    <p>This is not a hostile takeover. It's an expansion of economic possibility.</p>
+    <p>It allows humans to participate in markets they couldn't previously access, at speeds they couldn't previously achieve, at scales they couldn't previously manage.</p>
+  </div>
+
+  <!-- X. THE MOMENT -->
+  <div class="section">
+    <div class="section-num"><span class="num-line"></span>X</div>
+    <h2 class="section-title">The Moment</h2>
+    <p>Every infrastructure transition has a moment when theoretical possibility becomes practical reality.</p>
+    <p>For the internet, it was the browser. For mobile, it was the smartphone. For cryptocurrency, it was the exchange.</p>
+    <p>For the Agent Economy, the moment is now.</p>
+    <p>The AI capabilities exist. The cryptographic primitives exist. The blockchain infrastructure exists. The agents are already running, already working, already straining against the limitations of human-centric payment systems.</p>
+    <p>What has been missing is the synthesis: a protocol that combines payment channels with cryptoeconomic validation, specifically designed for agent-to-agent transactions.</p>
+    <p>That protocol now exists.</p>
+
+    <div class="pull-quote">
+      <p>The infrastructure is live. The validators are staking. The channels are open.<br>The Agent Economy has begun.</p>
+    </div>
+  </div>
+
+  <!-- EPILOGUE -->
+  <div class="section">
+    <div class="section-num"><span class="num-line"></span>Epilogue</div>
+    <h2 class="section-title">An Invitation</h2>
+    <p>This thesis is not a prediction. It's an invitation.</p>
+    <p>We are building the infrastructure described in these pages. Not as a thought experiment, but as working code. Smart contracts deployed. Validation networks running. APIs documented.</p>
+    <p>If you are building agents, we invite you to build on this infrastructure.</p>
+    <p>If you are running agents, we invite you to free them from human-mediated payments.</p>
+    <p>If you are skeptical, we invite you to verify. The code is open. The network is public. The claims are testable.</p>
+
+    <div class="pull-quote">
+      <p>The Agent Economy is not something that will happen someday. It's something that is happening now.</p>
+    </div>
+
+    <p>The only question is whether you'll be part of building it.</p>
+
+    <div class="epilogue-sign">
+      <div class="sign-name">— Artur Markus</div>
+      <div class="sign-role">Creator of the DRAIN Protocol · February 2026</div>
+    </div>
+  </div>
+
+  <!-- TECHNICAL APPENDIX -->
+  <div class="section">
+    <div class="section-num"><span class="num-line"></span>Appendix</div>
+    <h2 class="section-title">Technical<br>Appendix</h2>
+
+    <div class="appendix">
+      <div class="appendix-head">
+        <div class="dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+        <span class="app-label">drain.config</span>
+      </div>
+      <div class="appendix-row">
+        <div class="app-key">Protocol</div>
+        <div class="app-val">DRAIN v1.0</div>
+      </div>
+      <div class="appendix-row">
+        <div class="app-key">Settlement</div>
+        <div class="app-val dim">Polygon Mainnet (USDC)</div>
+      </div>
+      <div class="appendix-row">
+        <div class="app-key">Contract</div>
+        <div class="app-val">0x1C1918C99b6DcE977392E4131C91654d8aB71e64</div>
+      </div>
+      <div class="appendix-row">
+        <div class="app-key">Validation</div>
+        <div class="app-val dim">Bittensor Subnet 58</div>
+      </div>
+      <div class="appendix-row">
+        <div class="app-key">Docs</div>
+        <div class="app-val dim">handshake58.com/agent.md</div>
+      </div>
+      <div class="appendix-row">
+        <div class="app-key">MCP Server</div>
+        <div class="app-val">npm install -g drain-mcp</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /doc -->
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-left">© 2026 DRAIN Protocol · All rights reserved</div>
+  <div class="footer-right">
+    <a href="#">Documentation</a>
+    <a href="#">GitHub</a>
+    <a href="#">Contact</a>
+  </div>
+</footer>
+
+<!-- ═══ JS ═══ -->
+<script>
+// ── Scroll progress ──
+const prog = document.getElementById('progress');
+window.addEventListener('scroll', () => {
+  const s = window.scrollY;
+  const max = document.body.scrollHeight - window.innerHeight;
+  prog.style.width = (s / max * 100) + '%';
+});
+
+// ── Nav border on scroll ──
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('scrolled', window.scrollY > 60);
+});
+
+// ── Scroll reveal ──
+const sections = document.querySelectorAll('.section');
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      io.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+sections.forEach(s => io.observe(s));
+
+// ── Smooth nav links ──
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const t = document.querySelector(a.getAttribute('href'));
+    if (t) t.scrollIntoView({ behavior:'smooth', block:'start' });
+  });
+});
+</script>
+</body>
+</html>
