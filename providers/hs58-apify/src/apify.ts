@@ -8,6 +8,9 @@ import type { RunResult } from './types.js';
 
 const APIFY_BASE = 'https://api.apify.com/v2';
 
+/** Apify API paths require tilde (user~actor), not slash (user/actor) */
+const apiActorId = (id: string) => id.replace('/', '~');
+
 export class ApifyService {
   private token: string;
 
@@ -54,7 +57,7 @@ export class ApifyService {
     });
 
     const runRes = await fetch(
-      `${APIFY_BASE}/acts/${actorId}/runs?${params}`,
+      `${APIFY_BASE}/acts/${apiActorId(actorId)}/runs?${params}`,
       {
         method: 'POST',
         headers: this.headers(),
@@ -115,7 +118,7 @@ export class ApifyService {
    */
   async getActorDetails(actorId: string): Promise<any> {
     const res = await fetch(
-      `${APIFY_BASE}/acts/${actorId}`,
+      `${APIFY_BASE}/acts/${apiActorId(actorId)}`,
       { headers: this.headers() }
     );
 
