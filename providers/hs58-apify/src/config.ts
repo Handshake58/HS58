@@ -38,7 +38,8 @@ function estimateApifyCost(pricing: StoreActorPricing): number {
   }
 
   const events = pricing.pricingPerEvent.actorChargeEvents;
-  let estimate = 0;
+  let oneTimeTotal = 0;
+  let maxRecurringPrice = 0;
 
   for (const event of Object.values(events) as EventPricing[]) {
     const price = event.eventTieredPricingUsd?.FREE?.tieredEventPriceUsd
@@ -46,13 +47,13 @@ function estimateApifyCost(pricing: StoreActorPricing): number {
                ?? 0;
 
     if (event.isOneTimeEvent) {
-      estimate += price;
+      oneTimeTotal += price;
     } else {
-      estimate += price * ESTIMATED_RESULTS_PER_RUN;
+      maxRecurringPrice = Math.max(maxRecurringPrice, price);
     }
   }
 
-  return Math.max(estimate, 0.003);
+  return Math.max(oneTimeTotal + maxRecurringPrice * ESTIMATED_RESULTS_PER_RUN, 0.003);
 }
 
 /**

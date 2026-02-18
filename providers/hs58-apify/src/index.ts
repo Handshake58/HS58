@@ -28,14 +28,17 @@ app.use(express.json({ limit: '1mb' }));
  * GET /v1/pricing
  */
 app.get('/v1/pricing', (_req, res) => {
-  const pricing: Record<string, { pricePerRun: string; description: string }> = {};
+  const pricing: Record<string, any> = {};
 
   for (const modelId of getSupportedModels()) {
     const actor = getActor(modelId);
     const modelPricing = getModelPricing(modelId);
     if (actor && modelPricing) {
+      const price = formatUnits(modelPricing.inputPer1k, 6);
       pricing[modelId] = {
-        pricePerRun: formatUnits(modelPricing.inputPer1k, 6),
+        pricePerRun: price,
+        inputPer1kTokens: price,
+        outputPer1kTokens: '0',
         description: actor.description?.slice(0, 120) ?? '',
       };
     }
@@ -68,6 +71,44 @@ app.get('/v1/models', (_req, res) => {
   }));
 
   res.json({ object: 'list', data: models });
+});
+
+/**
+ * GET /v1/docs
+ */
+app.get('/v1/docs', (_req, res) => {
+  const actorCount = getSupportedModels().length;
+  const topActors = getSupportedModels().slice(0, 5).join(', ');
+
+  res.type('text/plain').send(`# HS58-Apify Provider — Agent Instructions
+
+This is NOT a chat provider. It runs Apify Actors (web scraping & data extraction).
+
+## How to use via DRAIN
+
+1. Open a payment channel to this provider (drain_open_channel)
+2. Call drain_chat with:
+   - model: Actor ID from /v1/models (e.g. "apify/web-scraper")
+   - messages: ONE user message containing valid JSON = the Actor's input parameters
+
+## Example
+
+model: "apify/website-content-crawler"
+messages: [{"role": "user", "content": "{\\"startUrls\\": [{\\"url\\": \\"https://example.com\\"}], \\"maxCrawlPages\\": 5}"}]
+
+The response contains scraped data as JSON in the assistant message.
+
+## Pricing
+
+Flat rate per Actor run (not per token). Check /v1/pricing for current prices.
+
+## Available Actors: ${actorCount}
+
+Top: ${topActors}
+
+Full list: /v1/models
+Input schemas: https://apify.com/{actorId} (replace {actorId} with the model ID)
+`);
 });
 
 /**
