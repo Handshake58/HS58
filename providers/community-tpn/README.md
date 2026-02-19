@@ -7,11 +7,11 @@ AI agents pay with USDC micropayments (via [DRAIN protocol](https://handshake58.
 ## What it does
 
 ```
-Agent → DRAIN Payment → This Provider → TPN Validator API → VPN Config → Agent
+Agent → DRAIN Payment → This Provider → TPN API → VPN Config → Agent
 ```
 
 - Accepts DRAIN micropayments (USDC on Polygon)
-- Requests VPN leases from a TPN validator
+- Requests VPN leases from the TPN API (`https://api.taoprivatenetwork.com`)
 - Returns WireGuard configs or SOCKS5 proxy credentials
 - Time-based pricing: cost scales with lease duration
 
@@ -23,7 +23,7 @@ npm install
 
 # 2. Configure
 cp env.example .env
-# Edit .env: set PROVIDER_PRIVATE_KEY and TPN_VALIDATOR_URL
+# Edit .env: set PROVIDER_PRIVATE_KEY, TPN_API_URL, TPN_API_KEY
 
 # 3. Run
 npm run dev
@@ -34,18 +34,18 @@ npm run dev
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `PROVIDER_PRIVATE_KEY` | Yes | — | Polygon wallet private key for receiving DRAIN payments |
-| `TPN_VALIDATOR_URL` | Yes | — | URL of a TPN Subnet 65 validator |
-| `TPN_API_KEY` | Yes | — | API key for TPN validator lease requests |
+| `TPN_API_URL` | Yes | — | TPN API URL (e.g. `https://api.taoprivatenetwork.com`) |
+| `TPN_API_KEY` | Yes | — | API key for TPN (get from TPN team) |
 | `PRICE_PER_HOUR_USDC` | No | `0.005` | USDC price per hour of VPN lease |
 | `MIN_PRICE_USDC` | No | `0.001` | Minimum USDC charge per request |
-| `MAX_LEASE_SECONDS` | No | `86400` | Maximum lease duration (24h) |
+| `MAX_LEASE_MINUTES` | No | `1440` | Maximum lease duration (24h) |
 | `POLYGON_RPC_URL` | No | public | Polygon RPC for on-chain operations |
 | `CHAIN_ID` | No | `137` | 137 = Polygon mainnet, 80002 = Amoy testnet |
 
 ### Pricing Formula
 
 ```
-cost = max(MIN_PRICE_USDC, lease_seconds / 3600 * PRICE_PER_HOUR_USDC)
+cost = max(MIN_PRICE_USDC, minutes / 60 * PRICE_PER_HOUR_USDC)
 ```
 
 Examples with defaults ($0.005/h, min $0.001):
@@ -63,11 +63,9 @@ Examples with defaults ($0.005/h, min $0.001):
 
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/v1/pricing` | Pricing info (marketplace health check) |
+| `GET` | `/v1/pricing` | Pricing info |
 | `GET` | `/v1/models` | Available models (tpn/wireguard, tpn/socks5) |
 | `GET` | `/v1/docs` | Agent usage instructions |
-| `GET` | `/v1/countries` | Available VPN countries |
-| `GET` | `/v1/stats` | TPN network statistics |
 | `POST` | `/v1/chat/completions` | Request a VPN lease (requires DRAIN voucher) |
 | `GET` | `/health` | Health check |
 
@@ -85,25 +83,23 @@ Examples with defaults ($0.005/h, min $0.001):
 
 ```
 model: "tpn/wireguard"
-messages: [{"role": "user", "content": "{\"lease_seconds\": 3600, \"geo\": \"US\"}"}]
+messages: [{"role": "user", "content": "{\"minutes\": 60, \"country\": \"US\"}"}]
 ```
 
 ### Request a SOCKS5 Proxy
 
 ```
 model: "tpn/socks5"
-messages: [{"role": "user", "content": "{\"lease_seconds\": 1800, \"geo\": \"DE\", \"connection_type\": \"residential\"}"}]
+messages: [{"role": "user", "content": "{\"minutes\": 30, \"country\": \"DE\", \"residential\": true}"}]
 ```
 
 ### Lease Parameters
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
-| `lease_seconds` | number | 3600 | Lease duration in seconds |
-| `geo` | string | any | ISO 3166-1 alpha-2 country code (e.g. "US", "DE", "NL") |
-| `connection_type` | string | "any" | "any", "datacenter", or "residential" |
-| `whitelist` | string[] | — | IP addresses to always allow |
-| `blacklist` | string[] | — | IP addresses to block |
+| `minutes` | number | 60 | Lease duration in minutes |
+| `country` | string | any | ISO 3166-1 alpha-2 country code (e.g. "US", "DE", "NL") |
+| `residential` | boolean | false | true for residential IPs, false for datacenter |
 
 ## Deployment
 
@@ -123,14 +119,14 @@ npm start
 
 ## For TPN Subnet Operators
 
-This provider is designed to be deployed alongside your TPN validator. Set `TPN_VALIDATOR_URL` to your local validator (e.g. `http://localhost:3000`) for lowest latency.
+This provider is designed to be deployed by anyone. Set `TPN_API_URL` and `TPN_API_KEY` to your TPN API credentials.
 
 You only need:
 1. A Polygon wallet (for receiving DRAIN payments)
-2. A running TPN validator
+2. TPN API access (URL + API key)
 3. This provider running as a service
 
-No Bittensor wallet is needed for this provider — it communicates with TPN via the validator's public API.
+No Bittensor wallet is needed — it communicates with TPN via their public API.
 
 ## License
 

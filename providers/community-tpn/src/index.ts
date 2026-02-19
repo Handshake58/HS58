@@ -2,9 +2,9 @@
  * Community TPN Provider
  *
  * DRAIN payment gateway for TPN VPN leases (WireGuard & SOCKS5).
- * Wraps the TPN Validator API (Bittensor Subnet 65) behind DRAIN micropayments.
+ * Wraps the TPN API (Bittensor Subnet 65) behind DRAIN micropayments.
  *
- * TPN API docs: https://github.com/taofu-labs/tpn-subnet/blob/main/federated-container/openapi.yaml
+ * TPN API: https://api.taoprivatenetwork.com
  */
 
 import express from 'express';
@@ -20,7 +20,7 @@ const config = loadConfig();
 
 const storage = new VoucherStorage(config.storagePath);
 const drainService = new DrainService(config, storage);
-const tpnService = new TpnService(config.tpnValidatorUrl, config.tpnApiKey);
+const tpnService = new TpnService(config.tpnApiUrl, config.tpnApiKey);
 
 const app = express();
 app.use(cors());
@@ -52,7 +52,7 @@ app.get('/v1/pricing', (_req, res) => {
     currency: 'USDC',
     decimals: 6,
     type: 'vpn-leases',
-    note: `Prices are per hour of VPN lease. Min charge: $${minPrice} per request. Cost = max(minPrice, lease_seconds / 3600 * pricePerHour).`,
+    note: `Prices are per hour of VPN lease. Min charge: $${minPrice} per request. Cost = max(minPrice, minutes / 60 * pricePerHour).`,
     models,
   });
 });
@@ -83,76 +83,74 @@ app.get('/v1/docs', (_req, res) => {
 
   res.type('text/plain').send(`# Community TPN Provider — Agent Instructions
 
-This provider sells VPN leases from the TPN decentralized network (Bittensor Subnet 65).
-It supports WireGuard VPN tunnels and SOCKS5 proxies in many countries worldwide.
+This is a NON-STANDARD provider. It sells VPN leases, not LLM chat. Read these docs carefully.
 
-## How to use via DRAIN
+## Available Models
 
-1. Open a payment channel to this provider (drain_open_channel)
+- tpn/wireguard — WireGuard VPN tunnel (returns .conf config)
+- tpn/socks5 — SOCKS5 proxy (returns proxy credentials)
+
+## How to Use
+
+1. Open a payment channel: drain_open_channel to provider
 2. Call drain_chat with:
-   - model: "tpn/wireguard" for a WireGuard VPN tunnel, or "tpn/socks5" for a SOCKS5 proxy
-   - messages: ONE user message containing valid JSON with lease parameters
+   - model: "tpn/wireguard" or "tpn/socks5"
+   - messages: ONE user message containing a JSON object (NOT natural language)
 
-## Lease Parameters (JSON in user message)
+## Lease Parameters (JSON in user message content)
 
-{
-  "lease_seconds": 3600,          // Duration in seconds (default: ${config.defaultLeaseSeconds}, max: ${config.maxLeaseSeconds})
-  "geo": "US",                    // ISO 3166-1 alpha-2 country code, or omit for any
-  "connection_type": "any"        // "any", "datacenter", or "residential"
-}
+| Parameter   | Type    | Default | Description |
+|-------------|---------|---------|-------------|
+| minutes     | number  | ${config.defaultLeaseMinutes}      | Lease duration in minutes (1–${config.maxLeaseMinutes}) |
+| country     | string  | any     | ISO 3166-1 alpha-2 code: "US", "DE", "NL", "GB", etc. |
+| residential | boolean | false   | true = residential IP, false = datacenter |
 
-## Available Countries
+## Request Examples
 
-Call GET /v1/countries on this provider to see available countries.
+### WireGuard VPN in the US for 1 hour
 
-## Example: Get a 1-hour WireGuard VPN in the US
+drain_chat parameters:
+  channelId: (your channel)
+  model: "tpn/wireguard"
+  messages: [{"role": "user", "content": "{\\"minutes\\": 60, \\"country\\": \\"US\\"}"}]
 
-model: "tpn/wireguard"
-messages: [{"role": "user", "content": "{\\"lease_seconds\\": 3600, \\"geo\\": \\"US\\"}"}]
+### SOCKS5 proxy in Germany for 30 minutes
 
-## Example: Get a SOCKS5 proxy in Germany
+drain_chat parameters:
+  channelId: (your channel)
+  model: "tpn/socks5"
+  messages: [{"role": "user", "content": "{\\"minutes\\": 30, \\"country\\": \\"DE\\"}"}]
 
-model: "tpn/socks5"
-messages: [{"role": "user", "content": "{\\"lease_seconds\\": 1800, \\"geo\\": \\"DE\\"}"}]
+### Minimal request (any country, 1 hour, datacenter)
+
+drain_chat parameters:
+  channelId: (your channel)
+  model: "tpn/wireguard"
+  messages: [{"role": "user", "content": "{}"}]
 
 ## Response Format
 
-WireGuard: Returns full WireGuard config (interface + peer) as JSON, plus a config_text field with the ready-to-use .conf format.
-SOCKS5: Returns proxy credentials (username, password, ip_address, port) plus a proxy_url field (socks5://user:pass@ip:port).
+The assistant message content is a JSON object:
+
+{
+  "type": "wireguard",
+  "vpn_config": "[Interface]\\nAddress = 10.13.13.29/32\\nPrivateKey = ...\\nListenPort = 51820\\nDNS = 10.13.13.1\\n\\n[Peer]\\nPublicKey = ...\\nPresharedKey = ...\\nAllowedIPs = 0.0.0.0/0\\nEndpoint = 1.2.3.4:51820",
+  "minutes": 60,
+  "expires_at": "2026-02-19T22:00:00.000Z",
+  "connection_type": "any",
+  "country": "US"
+}
+
+The vpn_config field contains the ready-to-use WireGuard .conf file content (newlines as \\n).
+Save it as a .conf file or parse the fields to configure a WireGuard client.
 
 ## Pricing
 
-- $${hourlyPrice} per hour of lease duration
+- $${hourlyPrice} per hour of lease
 - Minimum charge: $${minPrice} per request
-- Formula: max($${minPrice}, lease_seconds / 3600 * $${hourlyPrice})
+- Formula: cost = max($${minPrice}, minutes / 60 * $${hourlyPrice})
+- Example: 1h = $${hourlyPrice}, 24h = $${(parseFloat(hourlyPrice) * 24).toFixed(3)}
 `);
-});
-
-/**
- * GET /v1/countries
- */
-app.get('/v1/countries', async (req, res) => {
-  try {
-    const format = (req.query.type as string) === 'name' ? 'name' : 'code';
-    const countries = await tpnService.getCountries(format);
-    res.json({ countries, total: countries.length });
-  } catch (error: any) {
-    console.error('[countries] Error:', error.message);
-    res.status(502).json({ error: { message: `Failed to fetch countries: ${error.message?.slice(0, 200)}` } });
-  }
-});
-
-/**
- * GET /v1/stats
- */
-app.get('/v1/stats', async (_req, res) => {
-  try {
-    const stats = await tpnService.getStats();
-    res.json(stats);
-  } catch (error: any) {
-    console.error('[stats] Error:', error.message);
-    res.status(502).json({ error: { message: `Failed to fetch stats: ${error.message?.slice(0, 200)}` } });
-  }
 });
 
 /**
@@ -164,7 +162,6 @@ app.get('/v1/stats', async (_req, res) => {
  * - response = VPN config as assistant message
  */
 app.post('/v1/chat/completions', async (req, res) => {
-  // 1. Require voucher
   const voucherHeader = req.headers['x-drain-voucher'] as string;
   if (!voucherHeader) {
     res.status(402).json({
@@ -173,7 +170,6 @@ app.post('/v1/chat/completions', async (req, res) => {
     return;
   }
 
-  // 2. Parse voucher
   const voucher = drainService.parseVoucherHeader(voucherHeader);
   if (!voucher) {
     res.status(402).json({
@@ -182,7 +178,6 @@ app.post('/v1/chat/completions', async (req, res) => {
     return;
   }
 
-  // 3. Resolve model
   const modelId = req.body.model as string;
   if (!modelId || !isModelSupported(modelId)) {
     const available = getSupportedModels().join(', ');
@@ -195,7 +190,6 @@ app.post('/v1/chat/completions', async (req, res) => {
   const modelInfo = getModelInfo(modelId)!;
   const leaseType: TpnLeaseType = modelInfo.type;
 
-  // 4. Parse lease parameters from last user message
   const messages = req.body.messages as Array<{ role: string; content: string }>;
   const lastUserMsg = messages?.filter(m => m.role === 'user').pop();
 
@@ -213,20 +207,18 @@ app.post('/v1/chat/completions', async (req, res) => {
     res.status(400).json({
       error: {
         message: 'User message must be valid JSON with lease parameters. ' +
-          'Example: {"lease_seconds": 3600, "geo": "US", "connection_type": "any"}',
+          'Example: {"minutes": 60, "country": "US", "residential": false}',
       },
     });
     return;
   }
 
-  // 5. Validate and cap lease duration
-  const leaseSeconds = Math.min(
-    Math.max(leaseParams.lease_seconds ?? config.defaultLeaseSeconds, 1),
-    config.maxLeaseSeconds
+  const minutes = Math.min(
+    Math.max(leaseParams.minutes ?? config.defaultLeaseMinutes, 1),
+    config.maxLeaseMinutes
   );
 
-  // 6. Calculate cost and validate voucher
-  const cost = calculateCost(leaseSeconds, config);
+  const cost = calculateCost(minutes, config);
 
   const validation = await drainService.validateVoucher(voucher, cost);
   if (!validation.valid) {
@@ -239,43 +231,26 @@ app.post('/v1/chat/completions', async (req, res) => {
     return;
   }
 
-  // 7. Request lease from TPN
   try {
-    const { config: vpnConfig, configText } = await tpnService.requestLease(leaseType, {
+    const tpnResponse = await tpnService.requestLease(leaseType, {
       ...leaseParams,
-      lease_seconds: leaseSeconds,
+      minutes,
     });
 
-    // 8. Build response content
-    let content: string;
+    const content = JSON.stringify({
+      type: tpnResponse.type,
+      vpn_config: tpnResponse.vpnConfig,
+      minutes: tpnResponse.minutes,
+      expires_at: tpnResponse.expiresAt,
+      connection_type: tpnResponse.connection_type,
+      country: leaseParams.country ?? 'any',
+    }, null, 2);
 
-    if (leaseType === 'socks5') {
-      const socks = vpnConfig as any;
-      const proxyUrl = `socks5://${socks.username}:${socks.password}@${socks.ip_address}:${socks.port}`;
-      content = JSON.stringify({
-        type: 'socks5',
-        lease_seconds: leaseSeconds,
-        geo: leaseParams.geo ?? 'any',
-        proxy_url: proxyUrl,
-        config: vpnConfig,
-      }, null, 2);
-    } else {
-      content = JSON.stringify({
-        type: 'wireguard',
-        lease_seconds: leaseSeconds,
-        geo: leaseParams.geo ?? 'any',
-        config: vpnConfig,
-        config_text: configText,
-      }, null, 2);
-    }
-
-    // 9. Store voucher with cost
     drainService.storeVoucher(voucher, validation.channel!, cost);
 
     const totalCharged = validation.channel!.totalCharged + cost;
     const remaining = validation.channel!.deposit - totalCharged;
 
-    // 10. Send response in OpenAI format
     res.set({
       'X-DRAIN-Cost': cost.toString(),
       'X-DRAIN-Total': totalCharged.toString(),
@@ -360,7 +335,7 @@ app.get('/health', async (_req, res) => {
     status: tpnHealthy ? 'ok' : 'degraded',
     provider: drainService.getProviderAddress(),
     providerName: config.providerName,
-    tpnValidator: config.tpnValidatorUrl,
+    tpnApi: config.tpnApiUrl,
     tpnOnline: tpnHealthy,
     models: getSupportedModels(),
     chainId: config.chainId,
@@ -372,7 +347,7 @@ app.get('/health', async (_req, res) => {
 async function start() {
   const tpnHealthy = await tpnService.healthCheck();
   if (!tpnHealthy) {
-    console.warn(`[startup] WARNING: TPN validator at ${config.tpnValidatorUrl} is not reachable. Leases will fail until it comes online.`);
+    console.warn(`[startup] WARNING: TPN API at ${config.tpnApiUrl} is not reachable. Leases will fail until it comes online.`);
   }
 
   drainService.startAutoClaim(config.autoClaimIntervalMinutes, config.autoClaimBufferSeconds);
@@ -384,9 +359,9 @@ async function start() {
     console.log(`\nCommunity TPN Provider running on http://${config.host}:${config.port}`);
     console.log(`Provider address: ${drainService.getProviderAddress()}`);
     console.log(`Chain: ${config.chainId === 137 ? 'Polygon' : 'Amoy Testnet'}`);
-    console.log(`TPN Validator: ${config.tpnValidatorUrl} (${tpnHealthy ? 'online' : 'OFFLINE'})`);
+    console.log(`TPN API: ${config.tpnApiUrl} (${tpnHealthy ? 'online' : 'OFFLINE'})`);
     console.log(`Pricing: $${hourlyPrice}/hour, min $${minPrice}/request`);
-    console.log(`Max lease: ${config.maxLeaseSeconds}s (${(config.maxLeaseSeconds / 3600).toFixed(1)}h)\n`);
+    console.log(`Max lease: ${config.maxLeaseMinutes}min (${(config.maxLeaseMinutes / 60).toFixed(1)}h)\n`);
   });
 }
 

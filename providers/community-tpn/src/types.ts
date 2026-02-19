@@ -12,12 +12,12 @@ export interface ModelPricing {
 }
 
 export interface ProviderConfig {
-  tpnValidatorUrl: string;
-  tpnApiKey?: string;
+  tpnApiUrl: string;
+  tpnApiKey: string;
   pricePerHourUsdc: number;
   minPriceUsdc: number;
-  maxLeaseSeconds: number;
-  defaultLeaseSeconds: number;
+  maxLeaseMinutes: number;
+  defaultLeaseMinutes: number;
   port: number;
   host: string;
   chainId: 137 | 80002;
@@ -60,36 +60,30 @@ export interface ChannelState {
   lastActivityAt: number;
 }
 
-// --- TPN-specific types ---
+// --- TPN API types ---
 
 export interface LeaseParams {
-  lease_seconds?: number;
-  geo?: string;
-  connection_type?: 'any' | 'datacenter' | 'residential';
-  whitelist?: string[];
-  blacklist?: string[];
+  minutes?: number;
+  country?: string;
+  residential?: boolean;
 }
 
-export interface WireGuardConfig {
-  interface: {
-    Address: string;
-    PrivateKey: string;
-    ListenPort: number;
-    DNS: string;
-  };
-  peer: {
-    PublicKey: string;
-    PresharedKey: string;
-    AllowedIPs: string;
-    Endpoint: string;
-  };
+export interface TpnApiRequest {
+  minutes: number;
+  country?: string;
+  type: 'wireguard' | 'socks5';
+  residential: string;
 }
 
-export interface Socks5Config {
-  username: string;
-  password: string;
-  ip_address: string;
-  port: number;
+export interface TpnApiResponse {
+  success: boolean;
+  vpnConfig: string;
+  minutes: number;
+  expiresAt: string;
+  creditsUsed: number;
+  usedFallback: boolean;
+  type: string;
+  connection_type: string;
 }
 
 export type TpnLeaseType = 'wireguard' | 'socks5';

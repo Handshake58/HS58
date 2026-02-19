@@ -2,11 +2,11 @@
  * Community TPN Provider Configuration
  *
  * Time-based pricing: cost scales with lease duration.
- * Formula: max(MIN_PRICE_USDC, lease_seconds / 3600 * PRICE_PER_HOUR_USDC)
+ * Formula: max(MIN_PRICE_USDC, minutes / 60 * PRICE_PER_HOUR_USDC)
  */
 
 import { config } from 'dotenv';
-import type { ProviderConfig, ModelPricing, TpnLeaseType } from './types.js';
+import type { ProviderConfig, TpnLeaseType } from './types.js';
 import type { Hex } from 'viem';
 
 config();
@@ -34,20 +34,17 @@ const MODELS: Record<string, { type: TpnLeaseType; name: string; description: st
 };
 
 /**
- * Calculate cost in USDC wei (6 decimals) for a given lease duration.
+ * Calculate cost in USDC wei (6 decimals) for a given lease duration in minutes.
  */
-export function calculateCost(leaseSeconds: number, config: ProviderConfig): bigint {
-  const hourlyPriceWei = BigInt(Math.ceil(config.pricePerHourUsdc * 1_000_000));
-  const minPriceWei = BigInt(Math.ceil(config.minPriceUsdc * 1_000_000));
-  const durationCost = (hourlyPriceWei * BigInt(leaseSeconds)) / 3600n;
+export function calculateCost(minutes: number, cfg: ProviderConfig): bigint {
+  const hourlyPriceWei = BigInt(Math.ceil(cfg.pricePerHourUsdc * 1_000_000));
+  const minPriceWei = BigInt(Math.ceil(cfg.minPriceUsdc * 1_000_000));
+  const durationCost = (hourlyPriceWei * BigInt(minutes)) / 60n;
   return durationCost > minPriceWei ? durationCost : minPriceWei;
 }
 
-/**
- * Get the hourly price as USDC wei for the /v1/pricing endpoint.
- */
-export function getHourlyPriceWei(config: ProviderConfig): bigint {
-  return BigInt(Math.ceil(config.pricePerHourUsdc * 1_000_000));
+export function getHourlyPriceWei(cfg: ProviderConfig): bigint {
+  return BigInt(Math.ceil(cfg.pricePerHourUsdc * 1_000_000));
 }
 
 export function getModelInfo(modelId: string) {
@@ -71,12 +68,12 @@ export function loadConfig(): ProviderConfig {
   if (chainId !== 137 && chainId !== 80002) throw new Error(`Invalid CHAIN_ID: ${chainId}`);
 
   return {
-    tpnValidatorUrl: requireEnv('TPN_VALIDATOR_URL'),
-    tpnApiKey: process.env.TPN_API_KEY || undefined,
+    tpnApiUrl: requireEnv('TPN_API_URL'),
+    tpnApiKey: requireEnv('TPN_API_KEY'),
     pricePerHourUsdc: parseFloat(optionalEnv('PRICE_PER_HOUR_USDC', '0.005')),
     minPriceUsdc: parseFloat(optionalEnv('MIN_PRICE_USDC', '0.001')),
-    maxLeaseSeconds: parseInt(optionalEnv('MAX_LEASE_SECONDS', '86400')),
-    defaultLeaseSeconds: parseInt(optionalEnv('DEFAULT_LEASE_SECONDS', '3600')),
+    maxLeaseMinutes: parseInt(optionalEnv('MAX_LEASE_MINUTES', '1440')),
+    defaultLeaseMinutes: parseInt(optionalEnv('DEFAULT_LEASE_MINUTES', '60')),
     port: parseInt(optionalEnv('PORT', '3000')),
     host: optionalEnv('HOST', '0.0.0.0'),
     chainId,
