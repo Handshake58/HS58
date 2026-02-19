@@ -26,11 +26,6 @@ const MODELS: Record<string, { type: TpnLeaseType; name: string; description: st
     name: 'TPN WireGuard VPN',
     description: 'WireGuard VPN lease from the TPN decentralized network (Bittensor Subnet 65). Returns a full WireGuard config.',
   },
-  'tpn/socks5': {
-    type: 'socks5',
-    name: 'TPN SOCKS5 Proxy',
-    description: 'SOCKS5 proxy lease from the TPN decentralized network (Bittensor Subnet 65). Returns proxy credentials.',
-  },
 };
 
 /**

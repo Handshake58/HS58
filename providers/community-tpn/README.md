@@ -1,6 +1,6 @@
 # Community TPN Provider
 
-DRAIN payment gateway for **TPN VPN leases** (WireGuard & SOCKS5) via [Bittensor Subnet 65](https://github.com/taofu-labs/tpn-subnet).
+DRAIN payment gateway for **TPN WireGuard VPN leases** via [Bittensor Subnet 65](https://github.com/taofu-labs/tpn-subnet).
 
 AI agents pay with USDC micropayments (via [DRAIN protocol](https://handshake58.com)) and receive VPN connection configs in return.
 
@@ -12,7 +12,7 @@ Agent → DRAIN Payment → This Provider → TPN API → VPN Config → Agent
 
 - Accepts DRAIN micropayments (USDC on Polygon)
 - Requests VPN leases from the TPN API (`https://api.taoprivatenetwork.com`)
-- Returns WireGuard configs or SOCKS5 proxy credentials
+- Returns WireGuard VPN configs
 - Time-based pricing: cost scales with lease duration
 
 ## Quick Start
@@ -64,7 +64,7 @@ Examples with defaults ($0.005/h, min $0.001):
 | Method | Path | Description |
 |---|---|---|
 | `GET` | `/v1/pricing` | Pricing info |
-| `GET` | `/v1/models` | Available models (tpn/wireguard, tpn/socks5) |
+| `GET` | `/v1/models` | Available models (tpn/wireguard) |
 | `GET` | `/v1/docs` | Agent usage instructions |
 | `POST` | `/v1/chat/completions` | Request a VPN lease (requires DRAIN voucher) |
 | `GET` | `/health` | Health check |
@@ -84,13 +84,6 @@ Examples with defaults ($0.005/h, min $0.001):
 ```
 model: "tpn/wireguard"
 messages: [{"role": "user", "content": "{\"minutes\": 60, \"country\": \"US\"}"}]
-```
-
-### Request a SOCKS5 Proxy
-
-```
-model: "tpn/socks5"
-messages: [{"role": "user", "content": "{\"minutes\": 30, \"country\": \"DE\", \"residential\": true}"}]
 ```
 
 ### Lease Parameters

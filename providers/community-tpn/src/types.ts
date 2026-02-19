@@ -71,7 +71,7 @@ export interface LeaseParams {
 export interface TpnApiRequest {
   minutes: number;
   country?: string;
-  type: 'wireguard' | 'socks5';
+  type: 'wireguard';
   residential: string;
 }
 
@@ -86,4 +86,4 @@ export interface TpnApiResponse {
   connection_type: string;
 }
 
-export type TpnLeaseType = 'wireguard' | 'socks5';
+export type TpnLeaseType = 'wireguard';

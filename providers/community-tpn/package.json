@@ -1,7 +1,7 @@
 {
   "name": "@handshake58/community-tpn",
   "version": "0.1.0",
-  "description": "Community TPN Provider — DRAIN payment gateway for TPN VPN leases (WireGuard & SOCKS5) via Bittensor Subnet 65.",
+  "description": "Community TPN Provider — DRAIN payment gateway for TPN WireGuard VPN leases via Bittensor Subnet 65.",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
@@ -9,7 +9,7 @@
     "build": "tsup src/index.ts --format esm",
     "start": "node dist/index.js"
   },
-  "keywords": ["drain", "handshake58", "tpn", "vpn", "wireguard", "socks5", "bittensor", "micropayments"],
+  "keywords": ["drain", "handshake58", "tpn", "vpn", "wireguard", "bittensor", "micropayments"],
   "author": "Handshake58",
   "license": "MIT",
   "dependencies": {

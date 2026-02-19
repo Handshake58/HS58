@@ -1,7 +1,7 @@
 /**
  * Community TPN Provider
  *
- * DRAIN payment gateway for TPN VPN leases (WireGuard & SOCKS5).
+ * DRAIN payment gateway for TPN VPN leases (WireGuard).
  * Wraps the TPN API (Bittensor Subnet 65) behind DRAIN micropayments.
  *
  * TPN API: https://api.taoprivatenetwork.com
@@ -88,13 +88,12 @@ This is a NON-STANDARD provider. It sells VPN leases, not LLM chat. Read these d
 ## Available Models
 
 - tpn/wireguard — WireGuard VPN tunnel (returns .conf config)
-- tpn/socks5 — SOCKS5 proxy (returns proxy credentials)
 
 ## How to Use
 
 1. Open a payment channel: drain_open_channel to provider
 2. Call drain_chat with:
-   - model: "tpn/wireguard" or "tpn/socks5"
+   - model: "tpn/wireguard"
    - messages: ONE user message containing a JSON object (NOT natural language)
 
 ## Lease Parameters (JSON in user message content)
@@ -113,13 +112,6 @@ drain_chat parameters:
   channelId: (your channel)
   model: "tpn/wireguard"
   messages: [{"role": "user", "content": "{\\"minutes\\": 60, \\"country\\": \\"US\\"}"}]
-
-### SOCKS5 proxy in Germany for 30 minutes
-
-drain_chat parameters:
-  channelId: (your channel)
-  model: "tpn/socks5"
-  messages: [{"role": "user", "content": "{\\"minutes\\": 30, \\"country\\": \\"DE\\"}"}]
 
 ### Minimal request (any country, 1 hour, datacenter)
 
@@ -157,7 +149,7 @@ Save it as a .conf file or parse the fields to configure a WireGuard client.
  * POST /v1/chat/completions
  *
  * DRAIN-wrapped VPN lease request:
- * - model = "tpn/wireguard" or "tpn/socks5"
+ * - model = "tpn/wireguard"
  * - last user message = JSON lease parameters
  * - response = VPN config as assistant message
  */
