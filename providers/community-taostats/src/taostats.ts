@@ -30,7 +30,7 @@ export class TaostatsService {
     const res = await fetch(url.toString(), {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
+        'Authorization': this.apiKey,
         'Accept': 'application/json',
       },
       signal: AbortSignal.timeout(30000),
