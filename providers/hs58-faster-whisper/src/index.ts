@@ -89,6 +89,109 @@ app.get('/v1/models', (_req, res) => {
 });
 
 /**
+ * GET /v1/docs
+ * Agent instructions for this non-standard provider.
+ */
+app.get('/v1/docs', (_req, res) => {
+  const models = getSupportedModels();
+  const pricingLines = models.map(m => {
+    const p = getModelPricing(m);
+    if (!p) return '';
+    const perMin = formatUnits(p.pricePerSecond * 60n, 6);
+    return `| ${m} | $${formatUnits(p.pricePerSecond, 6)}/sec | $${perMin}/min |`;
+  }).join('\n');
+
+  res.type('text/markdown').send(`# HS58-Faster-Whisper — Agent Instructions
+
+This is a NON-STANDARD provider. It provides speech-to-text transcription, not LLM chat. Read these docs carefully.
+
+## Endpoint
+
+\`POST /v1/audio/transcriptions\` (OpenAI-compatible)
+
+This endpoint does NOT use \`/v1/chat/completions\`. You must send audio as multipart/form-data.
+
+## Available Models
+
+${models.map(m => `- ${m}`).join('\n')}
+
+Default: \`${config.defaultModel}\`
+
+## How to Use
+
+1. Open a payment channel: \`drain_open_channel\` to this provider
+2. Send a multipart/form-data POST to \`/v1/audio/transcriptions\` with:
+   - Header: \`X-DRAIN-Voucher\` (JSON: channelId, amount, nonce, signature)
+   - Form field \`file\`: audio file (mp3, wav, m4a, flac, ogg, webm, mp4)
+   - Form field \`model\`: one of the available models (optional, default: ${config.defaultModel})
+   - Form field \`language\`: ISO 639-1 code like "en", "de", "fr" (optional, auto-detected)
+   - Form field \`response_format\`: "json", "text", "verbose_json", "srt", "vtt" (optional, default: "json")
+
+## Request Example
+
+\`\`\`
+POST /v1/audio/transcriptions
+Header: X-DRAIN-Voucher: {"channelId":"0x...","amount":"1000000","nonce":"1","signature":"0x..."}
+Content-Type: multipart/form-data
+
+file: <audio file>
+model: Systran/faster-whisper-base
+language: en
+response_format: json
+\`\`\`
+
+## Response Formats
+
+### json (default)
+\`\`\`json
+{"text": "Hello, this is a transcription of the audio."}
+\`\`\`
+
+### text
+Plain text transcription only.
+
+### verbose_json
+\`\`\`json
+{"text": "Hello...", "language": "en", "duration": 42.5, "segments": [{"id": 0, "start": 0.0, "end": 2.5, "text": "Hello..."}]}
+\`\`\`
+
+### srt / vtt
+Subtitle files with timestamps.
+
+## Response Headers
+
+| Header | Description |
+|--------|-------------|
+| X-DRAIN-Cost | Cost of this transcription (USDC wei) |
+| X-DRAIN-Total | Total charged in this channel |
+| X-DRAIN-Remaining | Remaining channel balance |
+| X-DRAIN-Channel | Channel ID |
+| X-DRAIN-Duration | Audio duration in seconds |
+
+## Pricing
+
+Billed per second of audio duration.
+
+| Model | Per Second | Per Minute |
+|-------|-----------|------------|
+${pricingLines}
+
+## Supported Audio Formats
+
+mp3, mp4, mpeg, mpga, m4a, wav, webm, flac, ogg
+
+Max file size: 25 MB
+
+## Important Notes
+
+- This provider does NOT support \`/v1/chat/completions\`. Use \`/v1/audio/transcriptions\` only.
+- Audio is processed privately and never sent to third parties.
+- Cost is calculated after transcription based on actual audio duration.
+- 100+ languages supported with auto-detection.
+`);
+});
+
+/**
  * POST /v1/audio/transcriptions
  * OpenAI-compatible audio transcription with DRAIN payments.
  */
