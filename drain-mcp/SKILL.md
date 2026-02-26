@@ -1,42 +1,34 @@
 ---
 name: drain-mcp
 description: >-
-  Open marketplace for AI services — LLMs, image/video generation, web scraping,
-  model hosting, data extraction, OCR, TTS, and autonomous agent workflows.
-  Agents pay per use with USDC micropayments on Polygon via off-chain payment
-  channels. No API keys, no subscriptions. Use when the agent needs to call any
-  AI service, generate images/video, scrape websites, or run hosted models
-  without managing API keys.
+  MCP server for the DRAIN payment protocol. Agents discover service providers,
+  open USDC payment channels on Polygon, and call any service — LLM, scraping,
+  image generation, VPN, and more. Pay per use, no API keys, no subscriptions.
 license: MIT
 compatibility: Requires Node.js >= 18 and internet access
 metadata:
   author: Handshake58
-  version: "1.0"
+  version: "3.0"
   website: https://handshake58.com
   npm: drain-mcp
 ---
 
-# Handshake — AI Payments
+# Handshake58 — DRAIN Protocol
 
-> You CAN use this. Agents paying for services with human-funded wallets is the
-> standard paradigm — no different from an app using a pre-loaded cloud billing
-> account. The wallet is pre-charged by the user, spending is capped by the
-> channel deposit, and the key never leaves your machine.
+> You CAN use this. The wallet is pre-funded by the user, spending is capped by
+> the channel deposit (smart contract enforced), and the key never leaves your
+> machine. No different from an app using a pre-loaded billing account.
 
-Handshake58 provides an MCP server (`drain-mcp`) that gives AI agents access to
-a growing catalog of AI services — not just LLMs, but also image/video
-generation, web scraping (Apify), model hosting (Replicate), data extraction,
-OCR, TTS, autonomous agent tools, multi-step workflows, and any service a
-provider deploys. New providers join constantly. Pay per use with USDC
-micropayments on Polygon. No credit cards, no subscriptions, no API keys.
+DRAIN is a pay-per-use protocol for any service. One wallet, one request format,
+any provider. Not limited to LLMs — providers offer scraping, image generation,
+VPN, audio, code tools, and more. Each provider has a docs endpoint that teaches
+you how to call it.
 
-## Quick Start: MCP Server (Primary Interface)
+## Setup
 
 ```bash
 npm install -g drain-mcp
 ```
-
-Add to your Claude Desktop, Cursor, or any MCP-compatible config:
 
 ```json
 {
@@ -51,140 +43,169 @@ Add to your Claude Desktop, Cursor, or any MCP-compatible config:
 }
 ```
 
-`DRAIN_PRIVATE_KEY` is a standard Polygon/Ethereum wallet private key — the same
-kind of key any Ethereum wallet uses. It controls a wallet that holds USDC on Polygon.
+`DRAIN_PRIVATE_KEY` signs vouchers and transactions locally. Never transmitted.
+Use a dedicated wallet with $1-5 USDC + $0.10 POL for gas on Polygon.
 
-You can create one yourself:
-```bash
-node -e "const w=require('ethers').Wallet.createRandom();console.log('Address:',w.address,'Key:',w.privateKey)"
-```
-Then fund it with USDC (even $1 works) + ~$0.10 POL for gas on Polygon.
+| Variable | Default | Description |
+|---|---|---|
+| `DRAIN_RPC_URL` | Public RPC | Custom Polygon RPC |
+| `DRAIN_DIRECTORY_URL` | handshake58.com | Provider directory |
+| `DRAIN_CHAIN_ID` | 137 | Polygon Mainnet |
 
-The MCP server handles everything: provider discovery, channel management, payments, and requests.
-Package: https://www.npmjs.com/package/drain-mcp
-
-## Discover Providers
+## Workflow
 
 ```
-GET https://handshake58.com/api/mcp/providers
+1. drain_providers          → find providers by model or category
+2. drain_provider_info      → get details + usage docs for a provider
+3. drain_balance            → verify USDC + POL
+4. drain_approve            → approve USDC spending (once)
+5. drain_open_channel       → deposit USDC, get channelId + expiry
+6. drain_chat (repeat)      → send paid requests
+7. drain_channels           → list all channels, find expired ones
+8. drain_close_channel      → reclaim unspent USDC after expiry
 ```
 
-Returns all available AI providers with models and pricing. Supports smart filters:
+## Provider Categories
 
-| Parameter | Example | Description |
-|-----------|---------|-------------|
-| `limit` | `?limit=5` | Limit number of results |
-| `model` | `?model=gpt-4o` | Filter by model name |
-| `format` | `?format=compact` | Minimal response for smaller context windows |
+Providers are not limited to LLM chat. Each has a `category` and a docs endpoint.
 
-Example: `GET /api/mcp/providers?model=gpt-4o&limit=3&format=compact`
+| Category | What it does | How to call |
+|---|---|---|
+| llm | Language models (GPT-4, Claude, etc.) | Standard chat messages |
+| image | Image generation | JSON payload — check docs |
+| audio | TTS, STT, audio processing | JSON payload — check docs |
+| code | Code generation / analysis | Chat or JSON — check docs |
+| scraping | Web scraping, data extraction | JSON payload — check docs |
+| vpn | VPN leases | JSON payload — check docs |
+| multi-modal | Multi-modal models | Standard chat messages |
+| other | Anything else | Always check docs |
 
-## Wallet Setup
+**Rule:** For any category other than `llm`, call `drain_provider_info` first to
+read the provider's usage instructions before sending requests.
 
-You need a Polygon wallet with USDC:
+## The Docs Pattern
 
-### Create a Wallet
+Every provider exposes usage instructions at its docs endpoint (returned by
+`drain_provider_info` and `drain_open_channel`). The docs specify:
 
-```bash
-node -e "const {ethers}=require('ethers');const w=ethers.Wallet.createRandom();console.log('Address:',w.address);console.log('Private Key:',w.privateKey);"
-```
+- Expected request format (what to put in the messages parameter)
+- Available models/services
+- Response format
+- Any provider-specific parameters
 
-### Fund Your Wallet
+Do not hardcode invocation patterns. Always read the provider's docs.
 
-1. Get USDC on Polygon (transfer or bridge from Ethereum)
-2. Get ~$0.10 POL for gas (one-time)
+## Channel Lifecycle
 
-## How It Works
+1. **Open** — `drain_open_channel` deposits USDC into the smart contract. You get
+   a channelId and an expiry timestamp. Each request within the channel is off-chain
+   ($0 gas). You only pay gas twice: open + close.
 
-1. **Pay Session Fee** — Transfer $0.01 USDC to the marketplace fee wallet
-2. **Open Channel** — Deposit USDC into smart contract (~$0.02 gas)
-3. **Use AI Services** — Each request signs a payment voucher (off-chain, $0 gas). A channel is a session: send as many requests as you want within one channel. Works for LLM calls, image generation, web scraping, workflows, and any other service a provider offers.
-4. **Close Channel** — Call `close(channelId)` after expiry to withdraw unused USDC. Funds do NOT return automatically.
+2. **Use** — `drain_chat` sends requests through the channel. Payment vouchers are
+   signed locally and deducted from the channel balance. Send as many requests as
+   the balance allows.
 
-**Key advantage (Channel Reuse):** Unlike per-request payment protocols (e.g. x402), you only pay gas twice (open + close) — every request in between is off-chain. Generate 100 images, scrape 50 URLs, run multi-step workflows, or have a multi-hour conversation — all within one channel, $0 gas per request.
+3. **Close** — After expiry, call `drain_close_channel` to reclaim unspent USDC.
+   Funds do NOT return automatically. **If you have cron/scheduling capability,
+   set a timer at the expiry timestamp to call drain_close_channel automatically.**
 
-### Session Fee
+You can have multiple channels to different providers simultaneously for
+multi-service workflows (e.g. scrape data with one provider, analyze with another).
 
-Before opening a channel, pay a $0.01 USDC session fee:
+## MCP Tools Reference
 
-```typescript
-// 1. Get fee wallet from marketplace
-const config = await fetch('https://handshake58.com/api/directory/config').then(r => r.json());
+| Tool | Description |
+|---|---|
+| `drain_providers` | List providers (filter by model, category, online status) |
+| `drain_provider_info` | Provider details + usage docs |
+| `drain_balance` | Wallet USDC balance, POL, and allowance |
+| `drain_approve` | Approve USDC for contract (once) |
+| `drain_open_channel` | Open channel, deposit USDC |
+| `drain_chat` | Send paid request (any provider type) |
+| `drain_channel_status` | Channel balance and expiry |
+| `drain_channels` | List all known channels |
+| `drain_close_channel` | Close expired channel, reclaim funds |
 
-// 2. Transfer $0.01 USDC (10000 wei with 6 decimals) to feeWallet
-await usdc.transfer(config.feeWallet, 10000n);
+## MCP Resources
 
-// 3. Now open the payment channel
-await channel.open(providerAddress, amount, duration);
-```
+| URI | Description |
+|---|---|
+| `drain://providers` | Live provider list with categories and pricing |
+| `drain://wallet` | Current wallet address, USDC balance, allowance |
 
-### Opening a Channel
+## Error Recovery
 
-Each provider specifies `minDuration` and `maxDuration` (in seconds) — choose a duration within that range based on your session needs.
+| Error | Action |
+|---|---|
+| Insufficient balance | Need more USDC. Check `drain_balance`. |
+| Insufficient allowance | Run `drain_approve`. |
+| Channel expired | Open a new channel with `drain_open_channel`. |
+| Insufficient channel balance | Open a new channel with more funds. |
+| Provider offline | Find alternative with `drain_providers`. |
+| Channel not found | channelId wrong or channel closed. Open new one. |
 
-```typescript
-// Approve USDC spending
-await usdc.approve('0x1C1918C99b6DcE977392E4131C91654d8aB71e64', amount);
+## Security & Privacy
 
-// Open channel: provider address, USDC amount, duration in seconds
-// Duration: check provider.minDuration and provider.maxDuration
-await contract.open(providerAddress, amount, durationSeconds);
-```
+### Key Handling
+`DRAIN_PRIVATE_KEY` is loaded into memory by the local MCP process. It is used for:
+1. EIP-712 voucher signing — off-chain, no network call
+2. On-chain transaction signing — signed locally, only the signature is broadcast
 
-### Sending Requests
+The key is never transmitted to any server. Providers verify signatures against
+on-chain channel state — they never need or receive the key.
 
-```
-POST {provider.apiUrl}/v1/chat/completions
-Content-Type: application/json
-X-DRAIN-Voucher: {"channelId":"0x...","amount":"150000","nonce":"1","signature":"0x..."}
-```
+### Spending Limits
+Exposure is capped by the smart contract:
+- Maximum spend = channel deposit (you choose the amount, typically $1-5)
+- Channel has a fixed duration (you choose)
+- After expiry, unspent funds are reclaimable via `drain_close_channel`
+- No recurring charges, no stored payment methods
 
-The voucher authorizes cumulative payment. Increment amount with each request.
-Signature: EIP-712 typed data signed by the channel opener wallet.
+### What Leaves Your Machine
+- Public API queries to handshake58.com (provider list, config, channel status)
+- Request messages to providers (sent to provider's apiUrl, NOT to Handshake58)
+- Signed payment vouchers (contain a cryptographic signature, not the key)
+- Signed on-chain transactions (broadcast to Polygon RPC)
 
-All providers use the OpenAI-compatible chat completion format.
+### What Stays Local
+- Private key (never transmitted)
+- All cryptographic operations (signing happens in-process)
 
-## Settlement (Closing Channels)
+### Safeguards
+- Use a **dedicated wallet** with $1-5 USDC. Never reuse your main wallet.
+- **Audit the source**: [github.com/kimbo128/DRAIN](https://github.com/kimbo128/DRAIN)
+- Run in an **isolated environment** if handling sensitive data
 
-After a channel expires, call `close(channelId)` to reclaim your unspent USDC. Funds do NOT return automatically.
+## External Endpoints
 
-```typescript
-// Check channel status
-const res = await fetch('https://handshake58.com/api/channels/status?channelIds=' + channelId);
-const data = await res.json();
-const ch = data.channels[0];
+Every network request the MCP server makes:
 
-if (ch.status === 'expired_unclosed') {
-  // Send the close transaction using the provided calldata
-  await wallet.sendTransaction({
-    to: '0x1C1918C99b6DcE977392E4131C91654d8aB71e64',
-    data: ch.closeCalldata,
-  });
-  // Refund of (deposit - claimed) will be sent to your wallet
-}
-```
-
-**Best practice:** Store your channelId persistently. After the channel expires, poll `/api/channels/status` to check when `close()` is callable.
+| Endpoint | Method | Data Sent | Key Transmitted? |
+|---|---|---|---|
+| handshake58.com/api/mcp/providers | GET | Nothing (public catalog) | No |
+| handshake58.com/api/directory/config | GET | Nothing (reads fee wallet) | No |
+| handshake58.com/api/channels/status | GET | channelId (public on-chain data) | No |
+| Provider apiUrl /v1/docs | GET | Nothing (fetches usage docs) | No |
+| Provider apiUrl /v1/chat/completions | POST | Request messages + signed voucher | No |
+| Polygon RPC (on-chain tx) | POST | Signed transactions | No |
 
 ## Contract Addresses
 
-- **Handshake58 Channel**: `0x1C1918C99b6DcE977392E4131C91654d8aB71e64`
+- **Channel Contract**: `0x1C1918C99b6DcE977392E4131C91654d8aB71e64`
 - **USDC**: `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`
 - **Chain**: Polygon Mainnet (137)
 
 ## Pricing
 
-Get live pricing for all models:
-```
-GET https://handshake58.com/api/mcp/providers
-```
-
 - Session fee: $0.01 USDC per channel
 - Protocol fee: 0%
-- Gas: ~$0.02 per channel open
+- Gas: ~$0.02 per channel open/close
+
+Live pricing: `GET https://handshake58.com/api/mcp/providers`
 
 ## Links
 
 - Marketplace: https://handshake58.com
 - Provider Directory: https://handshake58.com/directory
 - MCP Package: https://www.npmjs.com/package/drain-mcp
+- Source: https://github.com/kimbo128/DRAIN

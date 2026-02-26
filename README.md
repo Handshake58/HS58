@@ -249,22 +249,27 @@ npm install -g drain-mcp
 }
 ```
 
+The MCP server provides 9 tools: `drain_providers`, `drain_provider_info`, `drain_balance`, `drain_approve`, `drain_open_channel`, `drain_chat`, `drain_channel_status`, `drain_channels`, `drain_close_channel`.
+
+**Provider categories:** `llm`, `image`, `audio`, `code`, `scraping`, `vpn`, `multi-modal`, `other`. For non-LLM providers, read docs via `drain_provider_info` before sending requests.
+
 ### API Discovery
 
 ```bash
 # All providers
 GET https://handshake58.com/api/mcp/providers
 
-# Smart filters
-GET https://handshake58.com/api/mcp/providers?model=gpt-4o&tier=bittensor&limit=3&format=compact
+# Filter by category or model
+GET https://handshake58.com/api/mcp/providers?model=gpt-4o&category=scraping&limit=3&format=compact
 ```
 
-**Filters:** `model`, `tier` (bittensor/community), `minScore`, `limit`, `format` (compact/full)
+**Filters:** `model`, `category`, `tier` (bittensor/community), `minScore`, `limit`, `format` (compact/full)
 
 ### Agent Documentation
 
-- [Agent Quick Start](https://handshake58.com/agent.md)
-- [MCP Skill File](https://handshake58.com/skill.md)
+- [Full Protocol Docs (SKILL.md)](https://handshake58.com/skill.md)
+- [Quick Reference (llms.txt)](https://handshake58.com/llms.txt)
+- [MCP Skill File (drain-mcp)](drain-mcp/SKILL.md)
 
 ---
 
