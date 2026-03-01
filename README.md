@@ -66,6 +66,10 @@ Ready-to-deploy provider templates for popular AI backends:
 | [`hs58-openrouter`](providers/hs58-openrouter) | OpenRouter | 200+ models |
 | [`hs58-chutes`](providers/hs58-chutes) | Chutes | Bittensor inference models |
 | [`hs58-custom`](providers/hs58-custom) | **Any** | Ollama, vLLM, Together, Fireworks, LiteLLM, etc. |
+| [`hs58-apify`](providers/hs58-apify) | Apify | Web scraping, data extraction, automation |
+| [`hs58-faster-whisper`](providers/hs58-faster-whisper) | Faster Whisper | Speech-to-text transcription |
+| [`community-tpn`](providers/community-tpn) | TPN/WireGuard | VPN leases |
+| [`community-taostats`](providers/community-taostats) | Taostats | Bittensor analytics API |
 
 Each template includes:
 - Full DRAIN voucher validation (EIP-712 signatures)
@@ -249,7 +253,7 @@ npm install -g drain-mcp
 }
 ```
 
-The MCP server provides 9 tools: `drain_providers`, `drain_provider_info`, `drain_balance`, `drain_approve`, `drain_open_channel`, `drain_chat`, `drain_channel_status`, `drain_channels`, `drain_close_channel`.
+The MCP server provides 10 tools: `drain_providers`, `drain_provider_info`, `drain_balance`, `drain_approve`, `drain_open_channel`, `drain_chat`, `drain_channel_status`, `drain_channels`, `drain_close_channel`, `drain_cooperative_close`.
 
 **Provider categories:** `llm`, `image`, `audio`, `code`, `scraping`, `vpn`, `multi-modal`, `other`. For non-LLM providers, read docs via `drain_provider_info` before sending requests.
 
@@ -277,10 +281,10 @@ GET https://handshake58.com/api/mcp/providers?model=gpt-4o&category=scraping&lim
 
 | Contract | Address | Network |
 |----------|---------|---------|
-| DRAIN Channel | `0x1C1918C99b6DcE977392E4131C91654d8aB71e64` | Polygon Mainnet |
+| DRAIN Channel V2 | `0x0C2B3aA1e80629D572b1f200e6DF3586B3946A8A` | Polygon Mainnet |
 | USDC | `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359` | Polygon Mainnet |
 
-[View on Polygonscan](https://polygonscan.com/address/0x1C1918C99b6DcE977392E4131C91654d8aB71e64)
+[View on Polygonscan](https://polygonscan.com/address/0x0C2B3aA1e80629D572b1f200e6DF3586B3946A8A)
 
 ---
 
@@ -296,7 +300,7 @@ GET https://handshake58.com/api/mcp/providers?model=gpt-4o&category=scraping&lim
 
 ## Pricing
 
-- **Protocol fee:** 0% on payments
+- **Protocol fee:** 2% on provider claims (on-chain, deducted automatically)
 - **Gas cost:** ~$0.02 per channel open/claim on Polygon
 - **Provider markup:** Set by each provider (typically 20-50% on upstream costs)
 
