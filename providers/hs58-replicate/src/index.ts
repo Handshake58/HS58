@@ -79,12 +79,23 @@ function formatOutput(output: unknown): string {
  * GET /v1/pricing
  */
 app.get('/v1/pricing', (_req, res) => {
-  const tiers: Record<string, { pricePerRun: string; description: string }> = {};
-  for (const [tier, cfg] of Object.entries(PRICING_TIERS)) {
-    const withMarkup = cfg.priceUsdc * (1 + config.markupPercent / 100);
-    tiers[tier] = {
-      pricePerRun: withMarkup.toFixed(4),
-      description: cfg.description,
+  const { models: allModels } = registry.listModels({ limit: 10000 });
+
+  const models: Record<string, {
+    pricing: { inputPer1k: string; outputPer1k: string };
+    tier: string;
+    description: string;
+  }> = {};
+
+  for (const m of allModels) {
+    const cost = registry.getModelCost(m.owner, m.name);
+    models[`replicate/${m.id}`] = {
+      pricing: {
+        inputPer1k: cost.toString(),
+        outputPer1k: cost.toString(),
+      },
+      tier: m.pricingTier,
+      description: m.description.slice(0, 120),
     };
   }
 
@@ -97,8 +108,8 @@ app.get('/v1/pricing', (_req, res) => {
     type: 'multi-modal-gateway',
     note: 'Replicate gateway with auto-curated models. Prices vary by category tier.',
     markup: `${config.markupPercent}%`,
-    tiers,
-    modelCount: registry.getModelCount(),
+    models,
+    modelCount: Object.keys(models).length,
   });
 });
 
