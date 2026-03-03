@@ -82,7 +82,8 @@ app.get('/v1/pricing', (_req, res) => {
   const { models: allModels } = registry.listModels({ limit: 10000 });
 
   const models: Record<string, {
-    pricing: { inputPer1kTokens: string; outputPer1kTokens: string };
+    inputPer1kTokens: string;
+    outputPer1kTokens: string;
     tier: string;
     description: string;
   }> = {};
@@ -90,10 +91,8 @@ app.get('/v1/pricing', (_req, res) => {
   for (const m of allModels) {
     const costUsdc = formatUnits(registry.getModelCost(m.owner, m.name), 6);
     models[`replicate/${m.id}`] = {
-      pricing: {
-        inputPer1kTokens: costUsdc,
-        outputPer1kTokens: '0',
-      },
+      inputPer1kTokens: costUsdc,
+      outputPer1kTokens: '0',
       tier: m.pricingTier,
       description: m.description.slice(0, 120),
     };
