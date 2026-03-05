@@ -72,6 +72,7 @@ Ready-to-deploy provider templates for popular AI backends:
 | [`hs58-faster-whisper`](providers/hs58-faster-whisper) | Faster Whisper | Speech-to-text transcription |
 | [`hs58-cronjob`](providers/hs58-cronjob) | cron-job.org | Schedule recurring HTTP requests (create, update, delete, list, history) |
 | [`hs58-e2b`](providers/hs58-e2b) | E2B | Execute Python, JavaScript, TypeScript, Bash, R, Java in isolated code sandboxes |
+| [`hs58-desearch`](providers/hs58-desearch) | Desearch (SN22) | AI search, X/Twitter data, SERP web search, web crawling — Bittensor Subnet 22 |
 | [`community-tpn`](providers/community-tpn) | TPN/WireGuard | VPN leases |
 | [`community-taostats`](providers/community-taostats) | Taostats | Bittensor analytics API |
 
