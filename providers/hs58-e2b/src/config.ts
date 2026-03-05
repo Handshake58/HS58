@@ -75,29 +75,44 @@ export const getSupportedModels = (): string[] =>
   Array.from(pricingMap.keys());
 
 export function loadConfig(): ProviderConfig {
-  const chainId = parseInt(optionalEnv('CHAIN_ID', '137')) as 137 | 80002;
-  if (chainId !== 137 && chainId !== 80002) {
-    throw new Error(`Invalid CHAIN_ID: ${chainId}`);
-  }
+  // Direct process.env references so Railway can detect all variables via static analysis
+  const E2B_API_KEY          = process.env.E2B_API_KEY;
+  const PROVIDER_PRIVATE_KEY = process.env.PROVIDER_PRIVATE_KEY;
+  const POLYGON_RPC_URL      = process.env.POLYGON_RPC_URL;
+  const CHAIN_ID             = process.env.CHAIN_ID             ?? '137';
+  const PROVIDER_NAME        = process.env.PROVIDER_NAME        ?? 'HS58-E2B';
+  const MARKUP_PERCENT       = process.env.MARKUP_PERCENT       ?? '50';
+  const SANDBOX_TIMEOUT_MS   = process.env.SANDBOX_TIMEOUT_MS   ?? '120000';
+  const CLAIM_THRESHOLD      = process.env.CLAIM_THRESHOLD      ?? '1000000';
+  const PORT                 = process.env.PORT                 ?? '3000';
+  const HOST                 = process.env.HOST                 ?? '0.0.0.0';
+  const STORAGE_PATH         = process.env.STORAGE_PATH         ?? './data/vouchers.json';
+  const AUTO_CLAIM_INTERVAL_MINUTES = process.env.AUTO_CLAIM_INTERVAL_MINUTES ?? '10';
+  const AUTO_CLAIM_BUFFER_SECONDS   = process.env.AUTO_CLAIM_BUFFER_SECONDS   ?? '3600';
 
-  const markupPercent = parseInt(optionalEnv('MARKUP_PERCENT', '50'));
-  const markupMultiplier = 1 + (markupPercent / 100);
+  if (!E2B_API_KEY)          throw new Error('Missing env: E2B_API_KEY');
+  if (!PROVIDER_PRIVATE_KEY) throw new Error('Missing env: PROVIDER_PRIVATE_KEY');
+
+  const chainId = parseInt(CHAIN_ID) as 137 | 80002;
+  if (chainId !== 137 && chainId !== 80002) throw new Error(`Invalid CHAIN_ID: ${chainId}`);
+
+  const markupMultiplier = 1 + (parseInt(MARKUP_PERCENT) / 100);
   const pricing = buildPricing(markupMultiplier);
 
   return {
-    e2bApiKey: requireEnv('E2B_API_KEY'),
-    sandboxTimeoutMs: parseInt(optionalEnv('SANDBOX_TIMEOUT_MS', '120000')),
+    e2bApiKey: E2B_API_KEY,
+    sandboxTimeoutMs: parseInt(SANDBOX_TIMEOUT_MS),
     markupMultiplier,
-    port: parseInt(optionalEnv('PORT', '3000')),
-    host: optionalEnv('HOST', '0.0.0.0'),
+    port: parseInt(PORT),
+    host: HOST,
     chainId,
-    providerPrivateKey: requireEnv('PROVIDER_PRIVATE_KEY') as Hex,
-    polygonRpcUrl: process.env.POLYGON_RPC_URL || undefined,
+    providerPrivateKey: PROVIDER_PRIVATE_KEY as Hex,
+    polygonRpcUrl: POLYGON_RPC_URL || undefined,
     pricing,
-    claimThreshold: BigInt(optionalEnv('CLAIM_THRESHOLD', '1000000')),
-    storagePath: optionalEnv('STORAGE_PATH', './data/vouchers.json'),
-    providerName: optionalEnv('PROVIDER_NAME', 'HS58-E2B'),
-    autoClaimIntervalMinutes: parseInt(optionalEnv('AUTO_CLAIM_INTERVAL_MINUTES', '10')),
-    autoClaimBufferSeconds: parseInt(optionalEnv('AUTO_CLAIM_BUFFER_SECONDS', '3600')),
+    claimThreshold: BigInt(CLAIM_THRESHOLD),
+    storagePath: STORAGE_PATH,
+    providerName: PROVIDER_NAME,
+    autoClaimIntervalMinutes: parseInt(AUTO_CLAIM_INTERVAL_MINUTES),
+    autoClaimBufferSeconds: parseInt(AUTO_CLAIM_BUFFER_SECONDS),
   };
 }
