@@ -70,6 +70,7 @@ Ready-to-deploy provider templates for popular AI backends:
 | [`hs58-numinous`](providers/hs58-numinous) | Numinous | Probabilistic forecasting agents |
 | [`hs58-replicate`](providers/hs58-replicate) | Replicate | 300+ models: image, video, audio, LLM, 3D |
 | [`hs58-faster-whisper`](providers/hs58-faster-whisper) | Faster Whisper | Speech-to-text transcription |
+| [`hs58-cronjob`](providers/hs58-cronjob) | cron-job.org | Schedule recurring HTTP requests (create, update, delete, list, history) |
 | [`community-tpn`](providers/community-tpn) | TPN/WireGuard | VPN leases |
 | [`community-taostats`](providers/community-taostats) | Taostats | Bittensor analytics API |
 
