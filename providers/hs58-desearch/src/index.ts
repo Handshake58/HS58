@@ -134,11 +134,11 @@ powered by Bittensor Subnet 22.
 
 ## Pricing (${markup}% markup applied)
 
-Prices are dynamic based on item count:
-  AI search endpoints:   $${(0.40 * config.markupMultiplier).toFixed(4)} per 1000 items (count / 1000 × $0.40 × ${markup}%)
-  Twitter endpoints:     $${(0.15 * config.markupMultiplier).toFixed(4)} per 1000 posts
-  Web SERP search:       $${(1.00 * config.markupMultiplier).toFixed(4)} per 1000 searches (flat per call)
-  Web crawl:             $${(0.50 * config.markupMultiplier).toFixed(4)} per 1000 pages (flat per call)
+Prices are dynamic based on item count. Formula: cost = (count / 1000) × pricePerK
+  AI search endpoints:   $${(0.40 * config.markupMultiplier).toFixed(4)} per 1000 items (base $0.40 × ${config.markupMultiplier.toFixed(2)})
+  Twitter endpoints:     $${(0.15 * config.markupMultiplier).toFixed(4)} per 1000 posts (base $0.15 × ${config.markupMultiplier.toFixed(2)})
+  Web SERP search:       $${(0.001 * config.markupMultiplier).toFixed(6)} per search (base $0.001 × ${config.markupMultiplier.toFixed(2)})
+  Web crawl:             $${(0.0005 * config.markupMultiplier).toFixed(6)} per page (base $0.0005 × ${config.markupMultiplier.toFixed(2)})
 
 ## Endpoints
 
