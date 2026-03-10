@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Due Diligence: Bittensor SN58 / DRAIN Protocol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,300;1,9..144,400;1,9..144,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:        #090b0e;
+  --ink1:       #0f1114;
+  --ink2:       #161920;
+  --ink3:       #1c2027;
+  --rule:       rgba(255,255,255,.06);
+  --rule-hi:    rgba(255,255,255,.11);
+  --text:       #a8b2bd;
+  --text-hi:    #cdd2d8;
+  --text-max:   #f2f4f6;
+  --green:      #3dffa0;
+  --green-dim:  rgba(61,255,160,.07);
+  --green-mid:  rgba(61,255,160,.15);
+  --green-glow: rgba(61,255,160,.3);
+  --amber:      #f0c35a;
+  --amber-dim:  rgba(240,195,90,.08);
+  --red:        #ff5c5c;
+  --red-dim:    rgba(255,92,92,.08);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule-hi) var(--ink);
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--ink); }
+::-webkit-scrollbar-thumb { background: var(--rule-hi); border-radius: 2px; }
+
+body {
+  background: var(--ink);
+  color: var(--text);
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 17px;
+  line-height: 1.85;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* PROGRESS BAR */
+#progress {
+  position: fixed;
+  top: 0; left: 0;
+  height: 2px;
+  width: 0%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green-glow);
+  z-index: 10000;
+  transition: width .1s linear;
+}
+
+/* NAV */
+nav {
+  position: fixed;
+  top: 2px; left: 0; right: 0;
+  z-index: 999;
+  padding: 20px 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(9,11,14,.75);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-bottom: 1px solid transparent;
+  transition: border-color .3s;
+}
+nav.scrolled { border-bottom-color: var(--rule); }
+.nav-left { display: flex; align-items: center; gap: 12px; }
+.nav-dots { display: flex; gap: 6px; }
+.nav-dots span { width: 10px; height: 10px; border-radius: 50%; display: block; }
+.nav-dots .d1 { background: #ff5f57; }
+.nav-dots .d2 { background: #febc2e; }
+.nav-dots .d3 { background: #28c840; }
+.nav-label { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text); }
+.nav-right { display: flex; align-items: center; gap: 24px; }
+.nav-link { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--text); text-decoration: none; transition: color .2s; }
+.nav-link:hover { color: var(--green); }
+.nav-cta {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+  padding: 8px 16px; border: 1px solid var(--green-mid); color: var(--green); border-radius: 3px;
+  background: var(--green-dim); text-decoration: none; transition: all .2s;
+}
+.nav-cta:hover { background: var(--green-mid); }
+
+/* GRAIN */
+#grain {
+  position: fixed; inset: 0; z-index: 9999; pointer-events: none; opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* CONTAINER */
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 32px 160px;
+}
+
+/* COVER */
+.cover {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 120px 32px 100px;
+}
+.cover-bg {
+  position: absolute; inset: 0; pointer-events: none;
+}
+.cover-glow {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -60%);
+  width: 700px; height: 500px;
+  background: radial-gradient(ellipse at center, rgba(61,255,160,.09) 0%, transparent 70%);
+  pointer-events: none;
+}
+.cover-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--rule) 1px, transparent 1px),
+    linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+  background-size: 60px 60px;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 0%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 0%, transparent 100%);
+}
+.cover-inner {
+  position: relative; z-index: 1;
+  max-width: 720px; margin: 0 auto;
+  text-align: center;
+}
+
+.cover-eyebrow {
+  display: flex; align-items: center; justify-content: center; gap: 16px;
+  margin-bottom: 32px;
+  opacity: 0; animation: fadeUp .9s ease .15s forwards;
+}
+.cover-eyebrow span {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--green);
+}
+.cover-eyebrow::before,
+.cover-eyebrow::after {
+  content: ''; flex: 1; max-width: 60px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--green-mid));
+}
+.cover-eyebrow::after { background: linear-gradient(90deg, var(--green-mid), transparent); }
+
+.cover-title {
+  font-family: 'Exo 2', sans-serif;
+  font-size: clamp(48px, 8vw, 84px);
+  font-weight: 800;
+  line-height: 1.02;
+  letter-spacing: -2px;
+  color: var(--text-max);
+  margin-bottom: 24px;
+  opacity: 0; animation: fadeUp .9s ease .3s forwards;
+}
+.cover-title em { font-style: normal; color: var(--green); }
+
+.cover-subtitle {
+  font-family: 'Fraunces', serif;
+  font-size: 19px;
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--text-hi);
+  max-width: 520px;
+  margin: 0 auto 48px;
+  opacity: 0; animation: fadeUp .9s ease .5s forwards;
+}
+
+.cover-meta {
+  display: flex; justify-content: center; gap: 40px; flex-wrap: wrap;
+  margin-bottom: 64px;
+  opacity: 0; animation: fadeUp .9s ease .7s forwards;
+}
+.cover-meta-item { text-align: center; }
+.cover-meta-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--text); margin-bottom: 6px; display: block;
+}
+.cover-meta-value {
+  font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-max);
+}
+
+.cover-score-badge {
+  display: inline-flex; align-items: center; gap: 16px;
+  padding: 16px 32px;
+  border: 1px solid var(--green-mid);
+  background: var(--green-dim);
+  border-radius: 4px;
+  opacity: 0; animation: fadeUp .9s ease .95s forwards;
+}
+.badge-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--text);
+}
+.badge-score {
+  font-family: 'Exo 2', sans-serif; font-size: 32px; font-weight: 800; color: var(--green);
+  line-height: 1;
+}
+.badge-rec {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--amber);
+  padding: 4px 10px; background: var(--amber-dim); border: 1px solid rgba(240,195,90,.2);
+  border-radius: 2px;
+}
+
+.scroll-indicator {
+  position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  opacity: 0; animation: fadeIn 1s ease 1.3s forwards;
+}
+.scroll-indicator span {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--text);
+}
+.scroll-line {
+  width: 1px; height: 40px;
+  background: linear-gradient(to bottom, var(--green-mid), transparent);
+  animation: scrollPulse 2s ease-in-out infinite;
+}
+
+/* SECTIONS */
+.section { margin-bottom: 100px; }
+
+.section-num-row {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+}
+.section-num {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--green);
+}
+.section-num-line { flex: 1; height: 1px; background: var(--rule); }
+
+.section-title {
+  font-family: 'Exo 2', sans-serif;
+  font-size: clamp(26px, 4vw, 36px);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.5px;
+  color: var(--text-max);
+  margin-bottom: 32px;
+}
+
+p { margin-bottom: 20px; }
+p:last-child { margin-bottom: 0; }
+
+/* PULL QUOTE */
+.pull-quote {
+  position: relative;
+  padding: 8px 0 8px 32px;
+  border-left: 2px solid var(--green);
+  margin: 44px 0;
+}
+.pull-quote::before {
+  content: '"';
+  font-family: 'Exo 2', sans-serif;
+  font-size: 56px;
+  font-weight: 800;
+  color: var(--green-mid);
+  position: absolute;
+  top: -12px; left: 8px;
+  line-height: 1;
+  pointer-events: none;
+}
+.pull-quote p {
+  font-family: 'Fraunces', serif;
+  font-size: 21px;
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--text-hi);
+  margin: 0;
+}
+
+/* NUMBERED LIST */
+.numbered-list { margin: 32px 0; }
+.numbered-item {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 0 20px;
+  padding: 28px 0;
+  border-top: 1px solid var(--rule);
+}
+.numbered-item:last-child { border-bottom: 1px solid var(--rule); }
+.item-num {
+  font-family: 'Exo 2', sans-serif; font-size: 22px; font-weight: 700; color: var(--green);
+  padding-top: 2px;
+}
+.item-content {}
+.item-title {
+  font-family: 'Exo 2', sans-serif; font-size: 17px; font-weight: 600;
+  color: var(--text-max); margin-bottom: 8px; letter-spacing: -0.2px;
+}
+.item-body { font-size: 16px; color: var(--text); line-height: 1.8; }
+
+/* SCORE GRID */
+.score-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--rule);
+  margin: 32px 0;
+  border: 1px solid var(--rule);
+}
+.score-card {
+  background: var(--ink1);
+  padding: 28px;
+}
+.score-card:last-child {
+  grid-column: 1 / -1;
+}
+.score-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.score-cat {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--text);
+  padding: 4px 8px; background: var(--ink2); border: 1px solid var(--rule);
+  display: inline-block; margin-bottom: 8px;
+}
+.score-name {
+  font-family: 'Exo 2', sans-serif; font-size: 17px; font-weight: 600;
+  color: var(--text-max); letter-spacing: -0.2px;
+}
+.score-val {
+  font-family: 'Exo 2', sans-serif; font-size: 28px; font-weight: 800; color: var(--green);
+  line-height: 1;
+}
+.score-bar-track {
+  height: 3px; background: var(--rule); border-radius: 2px; margin-top: 16px; overflow: hidden;
+}
+.score-bar-fill {
+  height: 100%; background: var(--green);
+  box-shadow: 0 0 6px var(--green-glow);
+  border-radius: 2px;
+  transition: width 1s cubic-bezier(.22,1,.36,1);
+}
+.score-rationale { font-size: 14px; color: var(--text); line-height: 1.7; margin-top: 12px; }
+
+/* RISK MATRIX */
+.risk-table { margin: 32px 0; border: 1px solid var(--rule); overflow: hidden; border-radius: 2px; }
+.risk-row {
+  display: grid; grid-template-columns: 140px 100px 1fr;
+  border-bottom: 1px solid var(--rule);
+}
+.risk-row:last-child { border-bottom: none; }
+.risk-row.header { background: var(--ink2); }
+.risk-cell {
+  padding: 16px 20px;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: var(--text); border-right: 1px solid var(--rule);
+}
+.risk-cell:last-child { border-right: none; font-family: 'Fraunces', serif; font-size: 14px; }
+.risk-row.header .risk-cell { color: var(--text-max); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; }
+.risk-cell.type { color: var(--text-hi); }
+.level-low { color: var(--green); }
+.level-medium { color: var(--amber); }
+.level-high { color: var(--red); }
+
+/* COMPARISON TABLE */
+.comp-table { margin: 32px 0; border: 1px solid var(--rule); overflow: hidden; }
+.comp-row { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr; border-bottom: 1px solid var(--rule); }
+.comp-row:last-child { border-bottom: none; }
+.comp-row.header { background: var(--ink2); }
+.comp-cell {
+  padding: 14px 18px; font-size: 13px; color: var(--text);
+  border-right: 1px solid var(--rule); font-family: 'Fraunces', serif; line-height: 1.5;
+}
+.comp-cell:last-child { border-right: none; }
+.comp-row.header .comp-cell {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--text-max);
+}
+.comp-cell.highlight { color: var(--green); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+
+/* STEPS */
+.steps { margin: 32px 0; position: relative; }
+.steps::before {
+  content: '';
+  position: absolute;
+  left: 15px; top: 31px;
+  width: 1px;
+  height: calc(100% - 31px);
+  background: linear-gradient(to bottom, var(--green-mid), var(--rule));
+}
+.step { display: grid; grid-template-columns: 31px 1fr; gap: 20px; padding: 0 0 32px; }
+.step:last-child { padding-bottom: 0; }
+.step-dot {
+  width: 31px; height: 31px; border-radius: 50%;
+  border: 2px solid var(--green-mid);
+  background: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--green);
+  flex-shrink: 0; z-index: 1; position: relative;
+}
+.step-label {
+  font-family: 'Exo 2', sans-serif; font-size: 16px; font-weight: 600;
+  color: var(--text-max); margin-bottom: 6px; padding-top: 4px;
+}
+.step-body { font-size: 15px; color: var(--text); line-height: 1.8; }
+
+/* APPENDIX */
+.appendix { margin: 32px 0; border: 1px solid var(--rule); }
+.appendix-row { display: grid; grid-template-columns: 160px 1fr; border-bottom: 1px solid var(--rule); }
+.appendix-row:last-child { border-bottom: none; }
+.appendix-key {
+  padding: 14px 16px; background: var(--ink2);
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text);
+  border-right: 1px solid var(--rule); display: flex; align-items: center;
+}
+.appendix-val {
+  padding: 14px 18px;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--green);
+  display: flex; align-items: center;
+}
+.appendix-val.secondary { color: var(--text-hi); }
+
+/* SOCIAL HIGHLIGHTS */
+.social-grid { margin: 32px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--rule); }
+.social-card {
+  background: var(--ink1); padding: 24px;
+  transition: border-color .2s;
+}
+.social-card:hover { background: var(--ink2); }
+.social-badge {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--green);
+  padding: 3px 8px; background: var(--green-dim); border: 1px solid var(--green-mid);
+  display: inline-block; margin-bottom: 12px;
+}
+.social-text { font-size: 14px; color: var(--text-hi); line-height: 1.7; font-style: italic; }
+
+/* COST TABLE */
+.cost-table { margin: 32px 0; border: 1px solid var(--rule); }
+.cost-row { display: grid; grid-template-columns: 2fr 1fr 1fr; border-bottom: 1px solid var(--rule); }
+.cost-row:last-child { border-bottom: none; background: var(--ink2); }
+.cost-cell {
+  padding: 12px 18px; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: var(--text); border-right: 1px solid var(--rule);
+}
+.cost-cell:last-child { border-right: none; color: var(--green); }
+.cost-row.header .cost-cell {
+  font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-max);
+  background: var(--ink2);
+}
+.cost-row:last-child .cost-cell:first-child { font-weight: 500; color: var(--text-max); }
+.cost-row:last-child .cost-cell:last-child { font-size: 15px; }
+
+/* EPILOGUE */
+.epilogue { margin-bottom: 100px; }
+.epilogue-body { margin-bottom: 40px; }
+.signature { border-top: 1px solid var(--rule); padding-top: 32px; margin-top: 32px; }
+.sig-name { font-family: 'Fraunces', serif; font-size: 19px; font-style: italic; color: var(--text-max); margin-bottom: 4px; }
+.sig-role { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text); }
+
+/* FOOTER */
+footer {
+  border-top: 1px solid var(--rule);
+  padding: 40px 32px;
+  max-width: 720px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.footer-copy { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1px; color: var(--text); }
+.footer-links { display: flex; gap: 24px; }
+.footer-link {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 1px;
+  text-decoration: none; color: var(--text); text-transform: uppercase;
+  transition: color .2s;
+}
+.footer-link:hover { color: var(--green); }
+
+/* ANIMATIONS */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scrollPulse {
+  0%, 100% { opacity: 1; transform: scaleY(1); }
+  50% { opacity: .4; transform: scaleY(.6); }
+}
+
+/* SCROLL REVEALS */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity .8s cubic-bezier(.22,1,.36,1), transform .8s cubic-bezier(.22,1,.36,1);
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+/* MISC */
+.inline-accent { color: var(--green); }
+.inline-amber { color: var(--amber); }
+
+@media (max-width: 640px) {
+  nav { padding: 16px 20px; }
+  .nav-right { display: none; }
+  .score-grid { grid-template-columns: 1fr; }
+  .score-card:last-child { grid-column: auto; }
+  .comp-row { grid-template-columns: 1fr 1fr; }
+  .comp-row .comp-cell:nth-child(3),
+  .comp-row .comp-cell:nth-child(4) { display: none; }
+  .social-grid { grid-template-columns: 1fr; }
+  .cover-meta { gap: 20px; }
+  footer { flex-direction: column; gap: 16px; text-align: center; }
+}
+
+@media print {
+  #grain, nav, #progress, .scroll-indicator { display: none !important; }
+  .reveal { opacity: 1 !important; transform: none !important; }
+  .cover { page-break-after: always; min-height: auto; padding: 80px 32px; }
+  .section { page-break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+<div id="grain"></div>
+
+<nav id="nav">
+  <div class="nav-left">
+    <div class="nav-dots">
+      <span class="d1"></span>
+      <span class="d2"></span>
+      <span class="d3"></span>
+    </div>
+    <span class="nav-label">SN58 // DUE DILIGENCE</span>
+  </div>
+  <div class="nav-right">
+    <a href="#technology" class="nav-link">Technology</a>
+    <a href="#market" class="nav-link">Market</a>
+    <a href="#onchain" class="nav-link">On-Chain</a>
+    <a href="#risks" class="nav-link">Risks</a>
+    <a href="#recommendation" class="nav-cta">Verdict</a>
+  </div>
+</nav>
+
+<!-- COVER -->
+<section class="cover">
+  <div class="cover-bg">
+    <div class="cover-glow"></div>
+    <div class="cover-grid"></div>
+  </div>
+  <div class="cover-inner">
+    <div class="cover-eyebrow">
+      <span>Due Diligence Report // Bittensor</span>
+    </div>
+    <h1 class="cover-title">
+      DRAIN<br><em>Protocol</em>
+    </h1>
+    <p class="cover-subtitle">
+      A decentralized AI provider marketplace enabling autonomous agent payments via gasless micropayments on Polygon and Bittensor validation.
+    </p>
+    <div class="cover-meta">
+      <div class="cover-meta-item">
+        <span class="cover-meta-label">Subnet</span>
+        <span class="cover-meta-value">SN58 / Handshake58</span>
+      </div>
+      <div class="cover-meta-item">
+        <span class="cover-meta-label">Date</span>
+        <span class="cover-meta-value">March 6, 2026</span>
+      </div>
+      <div class="cover-meta-item">
+        <span class="cover-meta-label">Network</span>
+        <span class="cover-meta-value">Bittensor + Polygon</span>
+      </div>
+    </div>
+    <div class="cover-score-badge">
+      <span class="badge-label">Weighted Score</span>
+      <span class="badge-score">7.0</span>
+      <span style="color:var(--text)">/10</span>
+      <span class="badge-rec">HOLD</span>
+    </div>
+  </div>
+  <div class="scroll-indicator">
+    <span>scroll</span>
+    <div class="scroll-line"></div>
+  </div>
+</section>
+
+<!-- CONTENT -->
+<div class="container">
+
+  <!-- EXECUTIVE SUMMARY -->
+  <section class="section reveal" id="summary">
+    <div class="section-num-row">
+      <span class="section-num">I</span>
+      <div class="section-num-line"></div>
+    </div>
+    <h2 class="section-title">Executive Summary</h2>
+    <p>Bittensor Subnet 58 (Handshake58 / DRAIN Protocol) is a decentralized AI provider marketplace enabling autonomous agent payments via gasless micropayments on Polygon and Bittensor validation. It raised <span class="inline-accent">220 TAO in 5 minutes</span> on Bitstarter, highlighting strong early demand.</p>
+    <p>The protocol offers a 2% fee on claims, integrates 15+ AI provider templates, and targets the exploding agent economy. Despite a single developer (kimbo128) and nascent on-chain activity (1 active miner, 14 validators), its innovative architecture, partnerships, and alignment with AI/payment trends position it as a high-potential subnet.</p>
+
+    <div class="pull-quote">
+      <p>"x402 is traffic laws. Handshake is the roads." — Positioning that captures the infrastructure-layer ambition of DRAIN Protocol.</p>
+    </div>
+
+    <p>Risks include centralization, low miner participation, and recent TAO outflows. This report provides a comprehensive analysis across technology, market opportunity, on-chain metrics, and team governance.</p>
+  </section>
+
+  <!-- TECHNOLOGY -->
+  <section class="section reveal" id="technology">
+    <div class="section-num-row">
+      <span class="section-num">II</span>
+      <div class="section-num-line"></div>
+    </div>
+    <h2 class="section-title">Product & Technology Assessment</h2>
+    <p>The DRAIN Protocol scores <span class="inline-accent">8/10</span> on technology. Its architecture is genuinely differentiated, combining gasless micropayments with Bittensor's validator-driven incentive layer.</p>
+
+    <div class="numbered-list">
+      <div class="numbered-item">
+        <div class="item-num">01</div>
+        <div class="item-content">
+          <div class="item-title">Gasless Micropayments</div>
+          <div class="item-body">EIP-712 signed vouchers over Polygon USDC payment channels eliminate gas friction for autonomous agents. Transactions settle off-chain and batch on-chain, enabling sub-cent payments at scale.</div>
+        </div>
+      </div>
+      <div class="numbered-item">
+        <div class="item-num">02</div>
+        <div class="item-content">
+          <div class="item-title">OpenAI-Compatible API</div>
+          <div class="item-body">Drop-in compatibility for existing agent stacks with 15+ provider templates and one-command Railway deployment. Minimal integration friction dramatically reduces time-to-adoption.</div>
+        </div>
+      </div>
+      <div class="numbered-item">
+        <div class="item-num">03</div>
+        <div class="item-content">
+          <div class="item-title">Bittensor Validation</div>
+          <div class="item-body">Validator scoring weighted 60% on successful claims and 40% on availability creates aligned incentives between miners and the protocol's service guarantees.</div>
+        </div>
+      </div>
+      <div class="numbered-item">
+        <div class="item-num">04</div>
+        <div class="item-content">
+          <div class="item-title">Auto-claiming & DRAIN Vouchers</div>
+          <div class="item-body">Automated settlement with subtoken support reduces operational overhead for provider nodes. DRAIN voucher validation is handled cryptographically on-chain.</div>
+        </div>
+      </div>
+    </div>
+
+    <p><span class="inline-amber">Notable weaknesses:</span> A single developer (kimbo128) raises sustainability concerns. The PolyForm Shield license may deter enterprise adoption compared to more permissive open-source alternatives.</p>
+  </section>
+
+  <!-- MARKET -->
+  <section class="section reveal" id="market">
+    <div class="section-num-row">
+      <span class="section-num">III</span>
+      <div class="section-num-line"></div>
+    </div>
+    <h2 class="section-title">Market Opportunity</h2>
+    <p>Market timing is DRAIN's strongest argument. The protocol scores <span class="inline-accent">9/10</span> on market opportunity — the highest category across all dimensions evaluated.</p>
+
+    <div class="pull-quote">
+      <p>Crypto + AI agent payments grew 4,300% week-over-week in 2024. AI training costs have escalated from $5M in 2020 to over $1 billion today. The infrastructure to monetize this compute is still being built.</p>
+    </div>
+
+    <p>DRAIN fills a specific, underserved gap: decentralized, frictionless agent-to-agent payments. Existing solutions — Coinbase's x402 protocol and Stripe's Agent Toolkit — are centralized, fiat-anchored, and enterprise-gated. DRAIN is permissionless by design.</p>
+    <p>Bittensor's network validates 2.5 trillion AI tokens per month, establishing proven demand for AI-incentivized infrastructure at scale. Partnerships with Vericore (SN70), Numinous (SN6), FlameWire (SN97), Apify, and Taostats strengthen credibility and expand distribution surface.</p>
+  </section>
+
+  <!-- SCORECARD -->
+  <section class="section reveal">
+    <div class="section-num-row">
+      <span class="section-num">IV</span>
+      <div class="section-num-line"></div>
+    </div>
+    <h2 class="section-title">Quantitative Scorecard</h2>
+    <p>Five dimensions scored independently, then weighted to a composite rating. Team governance and early-stage traction drag the composite below the strong technology and market scores.</p>
+
+    <div class="score-grid">
+      <div class="score-card">
+        <div class="score-cat">Category</div>
+        <div class="score-header">
+          <div class="score-name">Technology</div>
+          <div class="score-val">8.0</div>
+        </div>
+        <div class="score-bar-track"><div class="score-bar-fill" style="width:80%"></div></div>
+        <div class="score-rationale">Solid architecture with gasless payments and validator alignment. Limited by single developer dependency.</div>
+      </div>
+      <div class="score-card">
+        <div class="score-cat">Category</div>
+        <div class="score-header">
+          <div class="score-name">Market</div>
+          <div class="score-val">9.0</div>
+        </div>
+        <div class="score-bar-track"><div class="score-bar-fill" style="width:90%"></div></div>
+        <div class="score-rationale">Exceptional timing in the agent economy. Clear differentiation from centralized incumbent solutions.</div>
+      </div>
+      <div class="score-card">
+        <div class="score-cat">Category</div>
+        <div class="score-header">
+          <div class="score-name">Team</div>
+          <div class="score-val">5.0</div>
+        </div>
+        <div class="score-bar-track"><div class="score-bar-fill" style="width:50%"></div></div>
+        <div class="score-rationale">Solo developer with no disclosed institutional backing, governance structure, or succession planning.</div>
+      </div>
+      <div class="score-card">
+        <div class="score-cat">Category</div>
+        <div class="score-header">
+          <div class="score-name">Traction</div>
+          <div class="score-val">6.0</div>
+        </div>
+        <div class="score-bar-track"><div class="score-bar-fill" style="width:60%"></div></div>
+        <div class="score-rationale">220 TAO raised in 5 minutes on Bitstarter is a strong signal. However, only 1 active miner limits validation depth.</div>
+      </div>
+      <div class="score-card">
+        <div class="score-cat">Category</div>
+        <div class="score-header">
+          <div class="score-name">Tokenomics</div>
+          <div class="score-val">7.0</div>
+        </div>
+        <div class="score-bar-track"><div class="score-bar-fill" style="width:70%"></div></div>
+        <div class="score-rationale">Competitive 2% fee rate and low 0.05% Bittensor registration cost. Recent 7-day outflow of -421k TAO warrants monitoring.</div>
+      </div>
+      <div class="score-card" style="background:var(--ink2)">
+        <div class="score-cat" style="color:var(--green)">Composite</div>
+        <div class="score-header">
+          <div class="score-name" style="font-size:22px">Weighted Average</div>
+          <div class="score-val" style="font-size:44px">7.0</div>
+        </div>
+        <div class="score-bar-track"><div class="score-bar-fill" style="width:70%"></div></div>
+        <div class="score-rationale">High market opportunity and technical merit offset by team centralization and nascent on-chain activity.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ON-CHAIN -->
+  <section class="section reveal" id="onchain">
+    <div class="section-num-row">
+      <span class="section-num">V</span>
+      <div class="section-num-line"></div>
+    </div>
+    <h2 class="section-title">On-Chain Analysis</h2>
+    <p>On-chain data presents a mixed picture. The structural incentives are well-designed, but participation levels remain early-stage. All 256 neurons are active, and the 30-day TAO inflow of <span class="inline-accent">+280,561 TAO</span> is a meaningful signal of network engagement.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-dot">+</div>
+        <div class="step-content">
+          <div class="step-label">Strong Inflow Signal</div>
+          <div class="step-body">30-day TAO inflow of +280,561. EMA TAO flow at 2,215,263. Zero registration cost barriers maximize participation incentive.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-dot">!</div>
+        <div class="step-content">
+          <div class="step-label">Miner/Validator Imbalance</div>
+          <div class="step-body">Only 1 active miner against 14 validators is structurally concerning. Validation without sufficient compute supply limits the protocol's utility and may attract validator gaming.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-dot">−</div>
+        <div class="step-content">
+          <div class="step-label">Short-Term Outflows</div>
+          <div class="step-body">7-day outflow of -421k TAO and 1-day outflow of -139k TAO signal liquidity risk and possible early investor rotation. Monitor closely over the next 4-week window.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-dot">~</div>
+        <div class="step-content">
+          <div class="step-label">Low Fee Rate</div>
+          <div class="step-body">0.05% Bittensor fee rate is among the lowest on the network, creating a competitive moat for attracting miners and validators to the subnet over time.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RISK MATRIX -->
+  <section class="section reveal" id="risks">
+    <div class="section-num-row">
+      <span class="section-num">VI</span>
+      <div class="section-num-line"></div>
+    </div>
+    <h2 class="section-title">Risk Matrix</h2>
+    <p>Team centralization is the dominant risk category and represents the single most likely failure mode for DRAIN Protocol. All other risk vectors are manageable given the market context.</p>
+
+    <div class="risk-table">
+      <div class="risk-row header">
+        <div class="risk-cell">Risk Type</div>
+        <div class="risk-cell">Level</div>
+        <div class="risk-cell">Notes</div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-cell type">Technical</div>
+        <div class="risk-cell"><span class="level-medium">MEDIUM</span></div>
+        <div class="risk-cell">Single developer, but codebase is modular. GitHub history shows consistent iteration.</div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-cell type">Market</div>
+        <div class="risk-cell"><span class="level-low">LOW</span></div>
+        <div class="risk-cell">High demand in AI agent payments. Timing is unusually favorable for infrastructure plays.</div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-cell type">Regulatory</div>
+        <div class="risk-cell"><span class="level-medium">MEDIUM</span></div>
+        <div class="risk-cell">Payment channels may face compliance scrutiny in key jurisdictions. Swiss location adds some protection.</div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-cell type">Team</div>
+        <div class="risk-cell"><span class="level-high">HIGH</span></div>
+        <div class="risk-cell">Centralized development with unclear governance. No institutional backing or disclosed succession plan.</div>
+      </div>
+      <div class="risk-row">
+        <div class="risk-cell type">Liquidity</div>
+        <div class="risk-cell"><span class="level-medium">MEDIUM</span></div>
+        <div class="risk-cell">Recent TAO outflows and low validator count. 7-day and 1-day flows require continued monitoring.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- COMPARISON -->
+  <section class="section reveal">
+    <div class="section-num-row">
+      <span class="section-num">VII</span>
+      <div class="section-num-line"></div>
+    </div>
+    <h2 class="section-title">Comparable Protocol Analysis</h2>
+    <p>DRAIN competes against well-funded centralized incumbents. Its decentralization and AI-native architecture are genuine differentiators, but enterprise adoption pathways remain less defined than those of Coinbase or Stripe.</p>
+
+    <div class="comp-table">
+      <div class="comp-row header">
+        <div class="comp-cell">Metric</div>
+        <div class="comp-cell">DRAIN (SN58)</div>
+        <div class="comp-cell">x402 (Coinbase)</div>
+        <div class="comp-cell">Stripe Toolkit</div>
+      </div>
+      <div class="comp-row">
+        <div class="comp-cell">Payment Model</div>
+        <div class="comp-cell highlight">Gasless (Polygon)</div>
+        <div class="comp-cell">Centralized</div>
+        <div class="comp-cell">Centralized</div>
+      </div>
+      <div class="comp-row">
+        <div class="comp-cell">Decentralization</div>
+        <div class="comp-cell highlight">High</div>
+        <div class="comp-cell">Low</div>
+        <div class="comp-cell">Low</div>
+      </div>
+      <div class="comp-row">
+        <div class="comp-cell">AI Integration</div>
+        <div class="comp-cell highlight">15+ templates</div>
+        <div class="comp-cell">Limited</div>
+        <div class="comp-cell">Limited</div>
+      </div>
+      <div class="comp-row">
+        <div class="comp-cell">Fee Rate</div>
+        <div class="comp-cell highlight">2% + $0.02 gas</div>
+        <div class="comp-cell">2.5–5%</div>
+        <div class="comp-cell">2.9% + fees</div>
+      </div>
+      <div class="comp-row">
+        <div class="comp-cell">Adoption Stage</div>
+        <div class="comp-cell">Early-stage</div>
+        <div class="comp-cell">Enterprise-tier</div>
+        <div class="comp-cell">Enterprise-tier</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SOCIAL -->
+  <section class="section reveal">
+    <div class="section-num-row">
+      <span class="section-num">VIII</span>
+      <div class="section-num-line"></div>
+    </div>
+    <h2 class="section-title">Community & Social Signals</h2>
+    <p>Twitter/X activity (@handshake_58) provides qualitative evidence of growing community conviction. 613 followers and 44 tweets since February 2026 show active, consistent communication from the Switzerland-based developer.</p>
+
+    <div class="social-grid">
+      <div class="social-card">
+        <div class="social-badge">Partnership Signal</div>
+        <div class="social-text">"ClawHub Skill integration live." Active partnerships announced with Vericore SN70, Numinous SN6, FlameWire SN97, Apify, and Taostats.</div>
+      </div>
+      <div class="social-card">
+        <div class="social-badge">Community Sentiment</div>
+        <div class="social-text">"Could become one of the biggest TAO subnets." "So undervalued." Community conviction appears genuine rather than coordinated.</div>
+      </div>
+      <div class="social-card">
+        <div class="social-badge">Backer Endorsement</div>
+        <div class="social-text">Endorsed by Bitstarter/Mark Jeffrey: "Agents are going to flood to us." High-signal backer with Bittensor ecosystem credibility.</div>
+      </div>
+      <div class="social-card">
+        <div class="social-badge">Positioning</div>
+        <div class="social-text">"x402 = traffic laws, Handshake = the roads." Infrastructure-layer framing resonates with agent economy thesis investors.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RECOMMENDATION -->
+  <section class="section reveal" id="recommendation">
+    <div class="section-num-row">
+      <span class="section-num">IX</span>
+      <div class="section-num-line"></div>
+    </div>
+    <h2 class="section-title">Investment Recommendation: HOLD</h2>
+
+    <div class="pull-quote">
+      <p>Strong product-market fit in the agent economy and innovative gasless payments argue for conviction. Centralized development, miner imbalance, and recent TAO outflows argue for patience.</p>
+    </div>
+
+    <p><strong style="color:var(--green); font-family:'Exo 2',sans-serif;">Bull Case:</strong> DRAIN operates at the intersection of two of the highest-conviction macro trends in crypto: AI agent proliferation and decentralized compute markets. A 220 TAO raise in 5 minutes on Bitstarter demonstrates that the market is paying attention. If kimbo128 delivers the "funded wallet + gas" API upgrade and validator/miner ratios normalize, the protocol could capture a dominant position in subnet-level AI payments.</p>
+    <p><strong style="color:var(--red); font-family:'Exo 2',sans-serif;">Bear Case:</strong> Every meaningful risk in this report traces back to a single point of failure: one developer. Development velocity is at the discretion of one individual with no disclosed backup plan. Recent short-term TAO outflows may signal smart-money rotation out ahead of a longer consolidation period.</p>
+
+    <div class="numbered-list">
+      <div class="numbered-item">
+        <div class="item-num">→</div>
+        <div class="item-content">
+          <div class="item-title">Catalyst: API Upgrade Delivery</div>
+          <div class="item-body">Watch for the "funded wallet + gas" upgrade. On-time delivery would substantially de-risk the single-developer concern.</div>
+        </div>
+      </div>
+      <div class="numbered-item">
+        <div class="item-num">→</div>
+        <div class="item-content">
+          <div class="item-title">Catalyst: Miner Participation Growth</div>
+          <div class="item-body">Movement from 1 active miner toward 10+ would signal genuine network health improvement. Monitor weekly.</div>
+        </div>
+      </div>
+      <div class="numbered-item">
+        <div class="item-num">→</div>
+        <div class="item-content">
+          <div class="item-title">Catalyst: Partnership Expansion</div>
+          <div class="item-body">Vericore and Apify integrations going live with measurable usage would validate the partnership announcements as substantive.</div>
+        </div>
+      </div>
+    </div>
+
+    <p style="margin-top:32px;">Re-evaluate position in 3 months. If all three catalysts progress, reconsider to BUY. If miner growth stalls and outflows persist, reconsider to SELL.</p>
+  </section>
+
+  <!-- APPENDIX -->
+  <section class="section reveal">
+    <div class="section-num-row">
+      <span class="section-num">X</span>
+      <div class="section-num-line"></div>
+    </div>
+    <h2 class="section-title">Technical Appendix & Cost Breakdown</h2>
+    <p>Data sourced from GitHub, handshake58.com, SubnetAlpha, Twitter/X (@handshake_58), Desearch AI Search, Taostats On-Chain Data, and Qwen/Qwen3-32B for LLM synthesis via DRAIN Protocol's own infrastructure.</p>
+
+    <div class="appendix" style="margin-bottom:32px;">
+      <div class="appendix-row">
+        <div class="appendix-key">Subnet ID</div>
+        <div class="appendix-val">58</div>
+      </div>
+      <div class="appendix-row">
+        <div class="appendix-key">Protocol Name</div>
+        <div class="appendix-val">DRAIN / Handshake58</div>
+      </div>
+      <div class="appendix-row">
+        <div class="appendix-key">Developer</div>
+        <div class="appendix-val">kimbo128</div>
+      </div>
+      <div class="appendix-row">
+        <div class="appendix-key">Location</div>
+        <div class="appendix-val secondary">Switzerland</div>
+      </div>
+      <div class="appendix-row">
+        <div class="appendix-key">Fee Rate</div>
+        <div class="appendix-val">2% claims + 0.05% Bittensor</div>
+      </div>
+      <div class="appendix-row">
+        <div class="appendix-key">Active Miners</div>
+        <div class="appendix-val" style="color:var(--amber)">1 / 256</div>
+      </div>
+      <div class="appendix-row">
+        <div class="appendix-key">Validators</div>
+        <div class="appendix-val secondary">14 / 256</div>
+      </div>
+      <div class="appendix-row">
+        <div class="appendix-key">30D TAO Inflow</div>
+        <div class="appendix-val">+280,561 TAO</div>
+      </div>
+      <div class="appendix-row">
+        <div class="appendix-key">7D TAO Flow</div>
+        <div class="appendix-val" style="color:var(--red)">−421,000 TAO</div>
+      </div>
+      <div class="appendix-row">
+        <div class="appendix-key">EMA TAO Flow</div>
+        <div class="appendix-val secondary">2,215,263 TAO</div>
+      </div>
+      <div class="appendix-row">
+        <div class="appendix-key">Provider Templates</div>
+        <div class="appendix-val">15+</div>
+      </div>
+      <div class="appendix-row">
+        <div class="appendix-key">Bitstarter Raise</div>
+        <div class="appendix-val">220 TAO in &lt;5 minutes</div>
+      </div>
+      <div class="appendix-row">
+        <div class="appendix-key">License</div>
+        <div class="appendix-val secondary">PolyForm Shield</div>
+      </div>
+    </div>
+
+    <p style="margin-bottom:16px; font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text); letter-spacing:1px; text-transform:uppercase;">Research Cost Breakdown</p>
+    <div class="cost-table">
+      <div class="cost-row header">
+        <div class="cost-cell">Service</div>
+        <div class="cost-cell">Provider</div>
+        <div class="cost-cell">Cost</div>
+      </div>
+      <div class="cost-row">
+        <div class="cost-cell">GitHub Crawl</div>
+        <div class="cost-cell">HS58-Apify</div>
+        <div class="cost-cell">$0.01</div>
+      </div>
+      <div class="cost-row">
+        <div class="cost-cell">Website Crawl</div>
+        <div class="cost-cell">HS58-Apify</div>
+        <div class="cost-cell">$0.01</div>
+      </div>
+      <div class="cost-row">
+        <div class="cost-cell">AI Market Research</div>
+        <div class="cost-cell">HS58-Desearch</div>
+        <div class="cost-cell">$0.006</div>
+      </div>
+      <div class="cost-row">
+        <div class="cost-cell">Twitter Scrape (3 attempts)</div>
+        <div class="cost-cell">HS58-Apify + Desearch</div>
+        <div class="cost-cell">$1.76</div>
+      </div>
+      <div class="cost-row">
+        <div class="cost-cell">Metagraph Query</div>
+        <div class="cost-cell">HS58-Taostats</div>
+        <div class="cost-cell">$0.005</div>
+      </div>
+      <div class="cost-row">
+        <div class="cost-cell">Subnet Data Query</div>
+        <div class="cost-cell">HS58-Taostats</div>
+        <div class="cost-cell">$0.005</div>
+      </div>
+      <div class="cost-row">
+        <div class="cost-cell">LLM Report Synthesis</div>
+        <div class="cost-cell">HS58-Chutes (Qwen3-32B)</div>
+        <div class="cost-cell">$0.001</div>
+      </div>
+      <div class="cost-row">
+        <div class="cost-cell">Gas (channel open/close)</div>
+        <div class="cost-cell">Polygon</div>
+        <div class="cost-cell">~$0.50</div>
+      </div>
+      <div class="cost-row">
+        <div class="cost-cell">Total Estimated</div>
+        <div class="cost-cell"></div>
+        <div class="cost-cell">~$2.30</div>
+      </div>
+    </div>
+    <p style="font-size:13px; color:var(--text); margin-top:12px; font-style:italic;">Note: Twitter scraping was expensive due to user handle corrections (3 attempts at $0.80 each).</p>
+  </section>
+
+  <!-- EPILOGUE -->
+  <section class="epilogue reveal">
+    <div class="section-num-row">
+      <span class="section-num">Epilogue</span>
+      <div class="section-num-line"></div>
+    </div>
+    <h2 class="section-title" style="font-size:28px;">The Infrastructure Bet</h2>
+    <div class="epilogue-body">
+      <p>The agent economy is not a trend. It is the next computing paradigm. When software begins paying for software autonomously — when AI systems negotiate, transact, and settle without human intermediaries — the infrastructure layer becomes the most valuable position to hold.</p>
+      <p>DRAIN Protocol is building that infrastructure on Bittensor's decentralized backbone. The technology is sound. The market timing is exceptional. The only variable is human: whether a single developer in Switzerland can build enough before well-capitalized competitors — or the protocol's own success — demand more than one person can provide.</p>
+      <p>Hold. Watch carefully. The story is still being written.</p>
+    </div>
+    <div class="signature">
+      <div class="sig-name">DRAIN Protocol Research</div>
+      <div class="sig-role">Generated via DRAIN Protocol Skill // Bittensor Subnet Due Diligence // March 6, 2026</div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <span class="footer-copy">© 2026 Due Diligence Report. Research purposes only.</span>
+  <div class="footer-links">
+    <a href="https://handshake58.com" class="footer-link">Handshake58</a>
+    <a href="https://taostats.io" class="footer-link">Taostats</a>
+    <a href="https://bittensor.com" class="footer-link">Bittensor</a>
+  </div>
+</footer>
+
+<script>
+// Scroll progress
+const progress = document.getElementById('progress');
+const nav = document.getElementById('nav');
+window.addEventListener('scroll', () => {
+  const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+  progress.style.width = pct + '%';
+  nav.classList.toggle('scrolled', window.scrollY > 60);
+});
+
+// Reveal on scroll
+const reveals = document.querySelectorAll('.reveal');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1 });
+reveals.forEach(el => observer.observe(el));
+
+// Animate score bars on reveal
+const scoreObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const bars = e.target.querySelectorAll('.score-bar-fill');
+      bars.forEach(b => {
+        const w = b.style.width;
+        b.style.width = '0%';
+        requestAnimationFrame(() => {
+          setTimeout(() => b.style.width = w, 100);
+        });
+      });
+      scoreObserver.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('.score-grid').forEach(el => scoreObserver.observe(el));
+</script>
+
+</body>
+</html>
