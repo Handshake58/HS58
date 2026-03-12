@@ -141,6 +141,12 @@ app.get('/v1/pricing', (_req, res) => {
     note: config.pricingMode === 'flat'
       ? `Flat rate of $${pricePerUpload} USDC per upload. Files expire after ${TEMPSH_FILE_TTL}.`
       : `$${pricePerMb} USDC per MB (min 1 MB). Files expire after ${TEMPSH_FILE_TTL}.`,
+    models: {
+      'tempsh/upload': {
+        inputPer1kTokens: pricePerUpload,
+        outputPer1kTokens: '0',
+      },
+    },
   });
 });
 
