@@ -225,6 +225,194 @@ For providers where models come from an API (OpenRouter, Apify, Replicate):
 4. Expose `/v1/admin/refresh-models` for manual refresh
 5. Convert upstream pricing to DRAIN format: `price * 1000 * 1_000_000 * markup`
 
+## Pricing Strategy
+
+The agent must set a sensible price. Use the following decision framework:
+
+### Step 1: Determine upstream cost
+
+| Provider type | How to find upstream cost |
+|---|---|
+| LLM-Proxy (OpenAI, Claude, etc.) | Read upstream API pricing page. Price is per-token. |
+| API-Wrapper (Apify, Resend, etc.) | Check the API's pricing: per-call cost, per-item cost, or free tier. |
+| Self-Built (no upstream) | Estimate compute cost: Railway ~$5/mo for hobby. Amortize over expected request volume. |
+
+### Step 2: Apply markup
+
+| Upstream cost | Recommended markup | Rationale |
+|---|---|---|
+| Known, per-token (LLM) | 50% (`MARKUP_PERCENT=50`) | Standard across all LLM providers |
+| Known, per-call (cheap API) | 50-100% | Cover overhead + profit margin |
+| Estimated/free (Apify FREE tier) | 100% (`MARKUP_PERCENT=100`) | Higher risk, uncertain cost |
+| No upstream cost (self-built) | N/A -- set absolute price | $0.005-0.05 per request typical |
+| Expensive upstream ($0.10+) | 30-50% | Keep competitive |
+
+### Step 3: Convert to USDC-wei
+
+All prices must be in USDC-wei (6 decimals). The conversion:
+
+```typescript
+const priceWei = BigInt(Math.ceil(priceUsd * 1_000_000));
+// $0.003 → 3000n
+// $0.05  → 50000n
+// $1.00  → 1000000n
+```
+
+### Step 4: Choose pricing model
+
+| Pattern | Cost formula | Example |
+|---|---|---|
+| **Per-token** (LLM) | `(inputTokens * inputPer1k + outputTokens * outputPer1k) / 1000` | OpenAI, Claude |
+| **Flat per request** | `cost = fixedPrice` | Resend ($0.003), E2B ($0.02), Vericore |
+| **Per unit** (file size, items) | `cost = pricePerUnit * units` | TempSh per-MB, Desearch per-1000-items |
+| **Time-based** | `cost = max(minPrice, duration/60 * hourlyRate)` | TPN VPN leases |
+| **Dynamic per model** | `cost = modelSpecificPrice` from upstream pricing | Apify actors, Replicate tiers |
+
+For flat-rate providers: set `inputPer1kTokens` to the flat price, `outputPer1kTokens` to `"0"`.
+
+### Reference pricing from existing providers
+
+| Provider | Price per request | Upstream cost | Effective markup |
+|---|---|---|---|
+| hs58-resend | $0.0045 | ~$0.0004/email | ~11x |
+| hs58-e2b (Python) | $0.03 | ~$0.001/30s | ~30x |
+| hs58-apify (free actors) | $0.01 | $0 | infinite |
+| hs58-cronjob (create) | $0.075 | ~$0.01/job | ~7.5x |
+| community-tpn | $0.005/hr | variable | ~1x |
+| hs58-tempsh | $0.0075/upload | free | infinite |
+
+## Claiming Strategy
+
+The auto-claim system claims vouchers from channels that are about to expire. Choose settings based on the service type:
+
+### Claim threshold (CLAIM_THRESHOLD)
+
+This is the minimum amount (USDC-wei) before manual claiming kicks in. Auto-claim ignores this -- it claims ALL expiring channels regardless of amount.
+
+| Service type | Recommended threshold | Rationale |
+|---|---|---|
+| High-volume LLM (many small txns) | `10000000` ($10) | Avoid gas costs on tiny amounts |
+| Medium-volume API wrapper | `1000000` ($1) | Default, good balance |
+| Low-volume expensive service | `50000` ($0.05) | Claim sooner, amounts are larger per-txn |
+| One-off services (email, code exec) | `1000000` ($1) | Default works fine |
+
+### Auto-claim interval (AUTO_CLAIM_INTERVAL_MINUTES)
+
+How often to check for expiring channels. Default `10` minutes works for all providers. No provider has changed this.
+
+### Auto-claim buffer (AUTO_CLAIM_BUFFER_SECONDS)
+
+Claim channels expiring within this window. Default `3600` (1 hour) works for all providers. This ensures channels are claimed before they expire and funds become inaccessible.
+
+### Why NOT claim immediately after delivery?
+
+No existing provider does this because:
+1. Gas costs would eat into micro-payments (claiming costs ~$0.01 in POL)
+2. Channels typically have multiple requests, so waiting accumulates a larger amount
+3. Auto-claim catches expiring channels automatically
+4. The voucher is safely stored -- funds are secured even without immediate claiming
+
+For one-off expensive services ($10+ per request), a lower threshold ensures manual claiming triggers sooner.
+
+## Cost Calculation Patterns
+
+Choose the right `calculateCost` function based on your pricing model:
+
+### Flat-rate (most common for non-LLM)
+
+```typescript
+function calculateCost(_model: string): bigint {
+  return getModelPricing(model).inputPer1k; // flat price = inputPer1k
+}
+```
+
+### Token-based (LLM proxies)
+
+```typescript
+function calculateCost(pricing: ModelPricing, inputTokens: number, outputTokens: number): bigint {
+  return (pricing.inputPer1k * BigInt(inputTokens) + pricing.outputPer1k * BigInt(outputTokens)) / 1000n;
+}
+```
+
+### Per-unit (file size, item count, duration)
+
+```typescript
+// Per-MB example (tempsh)
+function calculateCost(fileSizeBytes: number): bigint {
+  const mb = Math.max(1, Math.ceil(fileSizeBytes / (1024 * 1024)));
+  return config.pricePerMb * BigInt(mb);
+}
+
+// Time-based example (tpn)
+function calculateCost(minutes: number): bigint {
+  const durationCost = (config.hourlyPriceWei * BigInt(minutes)) / 60n;
+  return durationCost > config.minPriceWei ? durationCost : config.minPriceWei;
+}
+```
+
+### Post-hoc pricing (LLM proxies only)
+
+When the actual cost is only known AFTER the API call (because token count is unknown upfront):
+
+1. **Pre-auth**: Estimate cost with `inputTokens ≈ JSON.stringify(messages).length / 4`, assume 50 output tokens. Validate voucher with this estimate.
+2. **Execute**: Call upstream API.
+3. **Post-auth**: Calculate actual cost from `completion.usage.prompt_tokens` / `completion_tokens`.
+4. **Non-streaming only**: Re-validate voucher with actual cost. If insufficient, return 402 with `code: 'insufficient_funds_post'`. (For streaming, the response is already sent, so just store the actual cost.)
+
+## Rate Limiting
+
+Optional but recommended for services that are abusable or expensive.
+
+### When to add rate limiting
+
+| Service type | Rate limit? | Recommended |
+|---|---|---|
+| LLM proxy | No | Upstream has its own limits |
+| Email sending | Yes | 30/min per channel (prevent spam) |
+| File upload | Yes | 20/min per channel |
+| Code execution | Optional | 10/min (resource intensive) |
+| Scraping | Optional | Depends on upstream limits |
+| Self-built tool | Yes if expensive | 10-30/min |
+
+### Implementation (per-channel sliding window)
+
+```typescript
+const rateLimitMap = new Map<string, number[]>();
+
+function checkRateLimit(channelId: string, maxPerMinute: number): boolean {
+  const now = Date.now();
+  const hits = rateLimitMap.get(channelId) ?? [];
+  const recent = hits.filter(t => now - t < 60_000);
+  if (recent.length >= maxPerMinute) return false;
+  recent.push(now);
+  rateLimitMap.set(channelId, recent);
+  return true;
+}
+
+// Cleanup stale entries every 5 minutes
+setInterval(() => {
+  const cutoff = Date.now() - 60_000;
+  for (const [id, hits] of rateLimitMap) {
+    const filtered = hits.filter(t => t > cutoff);
+    if (filtered.length === 0) rateLimitMap.delete(id);
+    else rateLimitMap.set(id, filtered);
+  }
+}, 5 * 60_000);
+```
+
+## Channel Duration Recommendations
+
+When registering, you can set `minDuration` and `maxDuration` (in seconds) for payment channels:
+
+| Service type | minDuration | maxDuration | Rationale |
+|---|---|---|---|
+| LLM proxy | 300 (5min) | 2592000 (30d) | Long sessions, many requests |
+| One-off API | 60 (1min) | 86400 (1d) | Short interactions |
+| Self-built tool | 60 (1min) | 86400 (1d) | Short interactions |
+| Subscription-like | 3600 (1hr) | 2592000 (30d) | Long-term usage |
+
+Most providers omit these fields (no restriction). Only set them if there is a specific reason.
+
 ## 7 Required Endpoints
 
 Every provider MUST implement these. The `POST /v1/chat/completions` handler is the core -- all others are mostly boilerplate.
