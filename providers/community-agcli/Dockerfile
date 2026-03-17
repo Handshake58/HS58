@@ -1,5 +1,5 @@
-# Stage 1: Build agcli from source (no GitHub releases available)
-FROM rust:1.83-bookworm AS agcli-builder
+# Stage 1: Build agcli from source (no GitHub releases available; needs Rust 1.85+ for edition2024)
+FROM rust:1.86-bookworm AS agcli-builder
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 RUN git clone --depth 1 https://github.com/unconst/agcli.git .
