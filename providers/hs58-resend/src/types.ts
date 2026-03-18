@@ -17,6 +17,7 @@ export interface ProviderConfig {
   maxRecipientsPerEmail: number;
   maxBodySizeBytes: number;
   rateLimitPerMinute: number;
+  minEmailIntervalMs: number;
   adminPassword?: string;
   port: number;
   host: string;

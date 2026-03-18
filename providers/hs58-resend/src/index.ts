@@ -3,6 +3,9 @@
  *
  * DRAIN payment gateway for the Resend email API.
  * Enables AI agents to send transactional emails with crypto micropayments.
+ *
+ * Emails are queued and sent asynchronously (1 per 5s) to respect Resend rate limits.
+ * Payment is charged immediately on acceptance; the worker handles delivery.
  */
 
 import express from 'express';
@@ -24,7 +27,14 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '256kb' }));
 
-// --- Rate Limiter (per channel, sliding window) ---
+// --- Email Queue ---
+interface QueuedEmail {
+  params: SendEmailParams;
+  retried?: boolean;
+}
+const emailQueue: QueuedEmail[] = [];
+
+// --- Rate Limiter (per channel, sliding window — limits enqueues, not sends) ---
 const rateLimitMap = new Map<string, number[]>();
 
 function checkRateLimit(channelId: string): boolean {
@@ -38,7 +48,6 @@ function checkRateLimit(channelId: string): boolean {
   return true;
 }
 
-// Cleanup stale entries every 5 minutes
 setInterval(() => {
   const cutoff = Date.now() - 120_000;
   for (const [key, hits] of rateLimitMap) {
@@ -47,6 +56,42 @@ setInterval(() => {
     else rateLimitMap.set(key, active);
   }
 }, 5 * 60_000);
+
+// --- Worker: sends 1 email per minEmailIntervalMs ---
+setInterval(async () => {
+  if (emailQueue.length === 0) return;
+  const job = emailQueue.shift()!;
+  try {
+    const { error } = await resend.emails.send({
+      from: job.params.from!,
+      to: job.params.to as string[],
+      subject: job.params.subject,
+      html: job.params.html,
+      text: job.params.text,
+      cc: job.params.cc as string[],
+      bcc: job.params.bcc as string[],
+      replyTo: job.params.reply_to as string,
+      tags: job.params.tags,
+    });
+    if (error) {
+      console.error(`[worker] Resend error: ${error.message}`);
+      if (!job.retried) {
+        job.retried = true;
+        emailQueue.push(job);
+      } else {
+        console.error(`[worker] Dropped after 2 attempts: ${job.params.subject} → ${job.params.to}`);
+      }
+    }
+  } catch (err: any) {
+    console.error(`[worker] Send exception: ${err.message}`);
+    if (!job.retried) {
+      job.retried = true;
+      emailQueue.push(job);
+    } else {
+      console.error(`[worker] Dropped after 2 attempts: ${job.params.subject} → ${job.params.to}`);
+    }
+  }
+}, config.minEmailIntervalMs);
 
 // --- Admin Auth Middleware ---
 function requireAdmin(req: express.Request, res: express.Response): boolean {
@@ -85,7 +130,6 @@ function validateEmailParams(params: any): { valid: boolean; error?: string; par
     }
   }
 
-  // Body size check
   const bodySize = (params.html?.length ?? 0) + (params.text?.length ?? 0);
   if (bodySize > config.maxBodySizeBytes) {
     return { valid: false, error: `Email body too large (${bodySize} bytes). Max: ${config.maxBodySizeBytes}` };
@@ -116,6 +160,29 @@ function validateEmailParams(params: any): { valid: boolean; error?: string; par
   };
 }
 
+function enqueueAndRespond(
+  emailParams: SendEmailParams,
+  cost: bigint,
+  totalCharged: bigint,
+  deposit: bigint,
+  channelId: string,
+) {
+  emailQueue.push({ params: emailParams });
+  const position = emailQueue.length;
+  const estimatedSendWithinSeconds = position * (config.minEmailIntervalMs / 1000);
+  const remaining = deposit - totalCharged;
+
+  return {
+    headers: {
+      'X-DRAIN-Cost': cost.toString(),
+      'X-DRAIN-Total': totalCharged.toString(),
+      'X-DRAIN-Remaining': remaining.toString(),
+      'X-DRAIN-Channel': channelId,
+    },
+    body: { queued: true, position, estimatedSendWithinSeconds },
+  };
+}
+
 /**
  * GET /v1/pricing
  */
@@ -140,7 +207,7 @@ app.get('/v1/pricing', (_req, res) => {
     currency: 'USDC',
     decimals: 6,
     type: 'email',
-    note: 'Flat rate per email sent via Resend API.',
+    note: 'Flat rate per email sent via Resend API. Emails are queued and delivered asynchronously.',
     models: pricing,
   });
 });
@@ -170,12 +237,14 @@ app.get('/v1/docs', (_req, res) => {
   res.type('text/plain').send(`# HS58-Resend Provider — Agent Instructions
 
 Send transactional emails via the Resend API, paid with DRAIN micropayments.
+Emails are queued and delivered asynchronously (~1 every ${config.minEmailIntervalMs / 1000}s).
 
 ## Quick Start
 
 1. Open a payment channel: drain_open_channel
 2. Send an email: drain_chat with model "resend/send-email"
 3. The user message must be valid JSON containing the email parameters
+4. Response confirms queued status with estimated delivery time
 
 ## Email Parameters
 
@@ -215,7 +284,7 @@ Actual payload: "content": "{\\"to\\": [\\"user@example.com\\"], \\"subject\\": 
 
 ## Pricing
 
-$${priceStr} USDC per email sent (flat rate, regardless of recipients or body size).
+$${priceStr} USDC per email (flat rate, charged on acceptance).
 
 ## Alternative: Direct API
 
@@ -226,34 +295,27 @@ POST /v1/emails/send — same JSON body (not wrapped in messages), requires X-DR
 /**
  * POST /v1/emails/send
  *
- * Direct email sending endpoint (native Resend format).
+ * Direct email sending endpoint. Validates, charges immediately, queues for async delivery.
  */
 app.post('/v1/emails/send', async (req, res) => {
   const voucherHeader = req.headers['x-drain-voucher'] as string;
   if (!voucherHeader) {
-    res.status(402).json({
-      error: { message: 'Payment required. Include X-DRAIN-Voucher header.' },
-    });
+    res.status(402).json({ error: { message: 'Payment required. Include X-DRAIN-Voucher header.' } });
     return;
   }
 
   const voucher = drainService.parseVoucherHeader(voucherHeader);
   if (!voucher) {
-    res.status(402).json({
-      error: { message: 'Invalid voucher format.' },
-    });
+    res.status(402).json({ error: { message: 'Invalid voucher format.' } });
     return;
   }
 
   const validation = validateEmailParams(req.body);
   if (!validation.valid) {
-    res.status(400).json({
-      error: { message: validation.error },
-    });
+    res.status(400).json({ error: { message: validation.error } });
     return;
   }
 
-  // Rate limit check
   if (!checkRateLimit(voucher.channelId)) {
     res.status(429).json({
       error: { message: `Rate limit exceeded. Max ${config.rateLimitPerMinute} emails/min per channel.` },
@@ -262,88 +324,41 @@ app.post('/v1/emails/send', async (req, res) => {
   }
 
   const cost = config.pricePerEmail;
-
   const voucherValidation = await drainService.validateVoucher(voucher, cost);
   if (!voucherValidation.valid) {
     res.status(402).json({
       error: { message: `Voucher error: ${voucherValidation.error}` },
-      ...(voucherValidation.error === 'insufficient_funds' && {
-        required: cost.toString(),
-      }),
+      ...(voucherValidation.error === 'insufficient_funds' && { required: cost.toString() }),
     });
     return;
   }
 
-  try {
-    const emailParams = validation.parsed!;
-    const { data, error } = await resend.emails.send({
-      from: emailParams.from!,
-      to: emailParams.to as string[],
-      subject: emailParams.subject,
-      html: emailParams.html,
-      text: emailParams.text,
-      cc: emailParams.cc as string[],
-      bcc: emailParams.bcc as string[],
-      replyTo: emailParams.reply_to as string,
-      tags: emailParams.tags,
-    });
+  drainService.storeVoucher(voucher, voucherValidation.channel!, cost);
 
-    if (error) {
-      res.status(502).json({
-        error: { message: `Resend API error: ${error.message}` },
-      });
-      return;
-    }
+  const totalCharged = voucherValidation.channel!.totalCharged + cost;
+  const result = enqueueAndRespond(
+    validation.parsed!, cost, totalCharged, voucherValidation.channel!.deposit, voucher.channelId,
+  );
 
-    drainService.storeVoucher(voucher, voucherValidation.channel!, cost);
-
-    const totalCharged = voucherValidation.channel!.totalCharged + cost;
-    const remaining = voucherValidation.channel!.deposit - totalCharged;
-
-    res.set({
-      'X-DRAIN-Cost': cost.toString(),
-      'X-DRAIN-Total': totalCharged.toString(),
-      'X-DRAIN-Remaining': remaining.toString(),
-      'X-DRAIN-Channel': voucher.channelId,
-    });
-
-    res.json({
-      success: true,
-      id: data?.id,
-      from: emailParams.from,
-      to: emailParams.to,
-      subject: emailParams.subject,
-    });
-  } catch (error: any) {
-    console.error('[resend] Send error:', error.message);
-    res.status(502).json({
-      error: { message: `Email send failed: ${error.message?.slice(0, 200)}` },
-    });
-  }
+  res.set(result.headers);
+  res.json(result.body);
 });
 
 /**
  * POST /v1/chat/completions
  *
- * Chat-wrapper for email sending:
- * - model = "resend/send-email"
- * - last user message = JSON email parameters
- * - response = send result as assistant message
+ * Chat-wrapper for email sending. Validates, charges immediately, queues for async delivery.
  */
 app.post('/v1/chat/completions', async (req, res) => {
   const voucherHeader = req.headers['x-drain-voucher'] as string;
   if (!voucherHeader) {
-    res.status(402).json({
-      error: { message: 'Payment required. Include X-DRAIN-Voucher header.' },
-    });
+    res.status(402).json({ error: { message: 'Payment required. Include X-DRAIN-Voucher header.' } });
     return;
   }
 
   const voucher = drainService.parseVoucherHeader(voucherHeader);
   if (!voucher) {
-    res.status(402).json({
-      error: { message: 'Invalid voucher format.' },
-    });
+    res.status(402).json({ error: { message: 'Invalid voucher format.' } });
     return;
   }
 
@@ -355,7 +370,6 @@ app.post('/v1/chat/completions', async (req, res) => {
     return;
   }
 
-  // Rate limit check
   if (!checkRateLimit(voucher.channelId)) {
     res.status(429).json({
       error: { message: `Rate limit exceeded. Max ${config.rateLimitPerMinute} emails/min per channel.` },
@@ -364,14 +378,11 @@ app.post('/v1/chat/completions', async (req, res) => {
   }
 
   const cost = config.pricePerEmail;
-
   const voucherValidation = await drainService.validateVoucher(voucher, cost);
   if (!voucherValidation.valid) {
     res.status(402).json({
       error: { message: `Voucher error: ${voucherValidation.error}` },
-      ...(voucherValidation.error === 'insufficient_funds' && {
-        required: cost.toString(),
-      }),
+      ...(voucherValidation.error === 'insufficient_funds' && { required: cost.toString() }),
     });
     return;
   }
@@ -401,75 +412,30 @@ app.post('/v1/chat/completions', async (req, res) => {
 
   const validation = validateEmailParams(emailInput);
   if (!validation.valid) {
-    res.status(400).json({
-      error: { message: validation.error },
-    });
+    res.status(400).json({ error: { message: validation.error } });
     return;
   }
 
-  try {
-    const emailParams = validation.parsed!;
-    const { data, error } = await resend.emails.send({
-      from: emailParams.from!,
-      to: emailParams.to as string[],
-      subject: emailParams.subject,
-      html: emailParams.html,
-      text: emailParams.text,
-      cc: emailParams.cc as string[],
-      bcc: emailParams.bcc as string[],
-      replyTo: emailParams.reply_to as string,
-      tags: emailParams.tags,
-    });
+  drainService.storeVoucher(voucher, voucherValidation.channel!, cost);
 
-    if (error) {
-      res.status(502).json({
-        error: { message: `Resend API error: ${error.message}` },
-      });
-      return;
-    }
+  const totalCharged = voucherValidation.channel!.totalCharged + cost;
+  const result = enqueueAndRespond(
+    validation.parsed!, cost, totalCharged, voucherValidation.channel!.deposit, voucher.channelId,
+  );
 
-    drainService.storeVoucher(voucher, voucherValidation.channel!, cost);
-
-    const totalCharged = voucherValidation.channel!.totalCharged + cost;
-    const remaining = voucherValidation.channel!.deposit - totalCharged;
-
-    const content = JSON.stringify({
-      success: true,
-      emailId: data?.id,
-      from: emailParams.from,
-      to: emailParams.to,
-      subject: emailParams.subject,
-    }, null, 2);
-
-    res.set({
-      'X-DRAIN-Cost': cost.toString(),
-      'X-DRAIN-Total': totalCharged.toString(),
-      'X-DRAIN-Remaining': remaining.toString(),
-      'X-DRAIN-Channel': voucher.channelId,
-    });
-
-    res.json({
-      id: `resend-${Date.now()}`,
-      object: 'chat.completion',
-      created: Math.floor(Date.now() / 1000),
-      model: modelId,
-      choices: [{
-        index: 0,
-        message: { role: 'assistant', content },
-        finish_reason: 'stop',
-      }],
-      usage: {
-        prompt_tokens: 0,
-        completion_tokens: 1,
-        total_tokens: 1,
-      },
-    });
-  } catch (error: any) {
-    console.error('[resend] Send error:', error.message);
-    res.status(502).json({
-      error: { message: `Email send failed: ${error.message?.slice(0, 200)}` },
-    });
-  }
+  res.set(result.headers);
+  res.json({
+    id: `resend-${Date.now()}`,
+    object: 'chat.completion',
+    created: Math.floor(Date.now() / 1000),
+    model: modelId,
+    choices: [{
+      index: 0,
+      message: { role: 'assistant', content: JSON.stringify(result.body, null, 2) },
+      finish_reason: 'stop',
+    }],
+    usage: { prompt_tokens: 0, completion_tokens: 1, total_tokens: 1 },
+  });
 });
 
 /**
@@ -497,6 +463,7 @@ app.get('/v1/admin/stats', (req, res) => {
     totalEarned: stats.totalEarned.toString(),
     provider: drainService.getProviderAddress(),
     providerName: config.providerName,
+    emailQueueLength: emailQueue.length,
   });
 });
 
@@ -545,6 +512,7 @@ app.get('/health', (_req, res) => {
     providerName: config.providerName,
     chainId: config.chainId,
     defaultFrom: config.defaultFrom,
+    emailQueueLength: emailQueue.length,
   });
 });
 
@@ -559,6 +527,7 @@ async function start() {
     console.log(`Chain: ${config.chainId === 137 ? 'Polygon' : 'Amoy Testnet'}`);
     console.log(`Default from: ${config.defaultFrom}`);
     console.log(`Price per email: $${(Number(config.pricePerEmail) / 1_000_000).toFixed(4)} USDC`);
+    console.log(`Email queue worker: 1 email per ${config.minEmailIntervalMs / 1000}s`);
     if (config.allowedDomains.length > 0) {
       console.log(`Allowed domains: ${config.allowedDomains.join(', ')}`);
     }
