@@ -187,6 +187,100 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// --- Platform Stats (free, no DRAIN voucher) ---
+
+let platformStatsCache: { data: any; ts: number } | null = null;
+const PLATFORM_STATS_TTL = 5 * 60_000;
+
+app.get('/v1/platform-stats', async (_req, res) => {
+  if (platformStatsCache && Date.now() - platformStatsCache.ts < PLATFORM_STATS_TTL) {
+    res.json(platformStatsCache.data);
+    return;
+  }
+
+  const netuid = process.env.PLATFORM_NETUID || '58';
+
+  const [metagraphResult, healthResult, emissionsResult] = await Promise.allSettled([
+    executeTool(
+      'agcli/subnet-metagraph',
+      JSON.stringify({ netuid: parseInt(netuid) }),
+      config.agcliPath, config.subtensorEndpoint,
+      config.agcliTimeoutRead, config.agcliTimeoutWrite,
+    ),
+    executeTool(
+      'agcli/subnet-health',
+      JSON.stringify({ netuid: parseInt(netuid) }),
+      config.agcliPath, config.subtensorEndpoint,
+      config.agcliTimeoutRead, config.agcliTimeoutWrite,
+    ),
+    executeTool(
+      'agcli/subnet-emissions',
+      JSON.stringify({ netuid: parseInt(netuid) }),
+      config.agcliPath, config.subtensorEndpoint,
+      config.agcliTimeoutRead, config.agcliTimeoutWrite,
+    ),
+  ]);
+
+  let minerCount = 0;
+  let validatorCount = 0;
+  let avgIncentive = 0;
+  let topMiners: { uid: number; incentive: number }[] = [];
+
+  if (metagraphResult.status === 'fulfilled') {
+    try {
+      const mg = JSON.parse(metagraphResult.value);
+      const neurons = Array.isArray(mg) ? mg : mg.neurons || mg.data || [];
+      const validators = neurons.filter((n: any) => n.validator_permit || n.stake > 0);
+      const miners = neurons.filter((n: any) => !n.validator_permit && n.stake === 0);
+      minerCount = miners.length || neurons.length;
+      validatorCount = validators.length;
+
+      const incentives = neurons.map((n: any) => n.incentive ?? 0).filter((v: number) => v > 0);
+      avgIncentive = incentives.length > 0
+        ? incentives.reduce((s: number, v: number) => s + v, 0) / incentives.length
+        : 0;
+
+      topMiners = neurons
+        .filter((n: any) => (n.incentive ?? 0) > 0)
+        .sort((a: any, b: any) => (b.incentive ?? 0) - (a.incentive ?? 0))
+        .slice(0, 5)
+        .map((n: any) => ({ uid: n.uid, incentive: n.incentive }));
+    } catch {}
+  }
+
+  let healthStatus = 'unknown';
+  if (healthResult.status === 'fulfilled') {
+    try {
+      const h = JSON.parse(healthResult.value);
+      if (h.status) healthStatus = h.status;
+      else if (h.healthy !== undefined) healthStatus = h.healthy ? 'healthy' : 'degraded';
+      else healthStatus = 'healthy';
+    } catch {}
+  }
+
+  let totalEmission = 0;
+  if (emissionsResult.status === 'fulfilled') {
+    try {
+      const e = JSON.parse(emissionsResult.value);
+      totalEmission = e.total_emission ?? e.emission ?? e.totalEmission ?? 0;
+    } catch {}
+  }
+
+  const data = {
+    netuid: parseInt(netuid),
+    minerCount,
+    validatorCount,
+    avgIncentive: Math.round(avgIncentive * 10000) / 10000,
+    topMiners,
+    healthStatus,
+    totalEmission,
+    timestamp: new Date().toISOString(),
+  };
+
+  platformStatsCache = { data, ts: Date.now() };
+  res.json(data);
+});
+
 app.post('/v1/chat/completions', async (req, res) => {
   const voucherHeader = req.headers['x-drain-voucher'] as string | undefined;
   if (!voucherHeader) {
