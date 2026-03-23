@@ -5,6 +5,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 RUN rustup component add rustfmt
 WORKDIR /build
 RUN git clone --depth 1 https://github.com/unconst/agcli.git .
+# Patch: chain renamed coldkey_swap_scheduled storage item; stub out unused function
+RUN sed -i 's/\.coldkey_swap_scheduled(/\.coldkey_swap_disputes(/' src/chain/queries.rs
 RUN cargo build --release
 # Binary at /build/target/release/agcli
 
