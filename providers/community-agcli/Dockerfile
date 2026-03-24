@@ -4,7 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 # agcli build.rs needs rustfmt and fetches chain metadata at build time
 RUN rustup component add rustfmt
 WORKDIR /build
-RUN git clone --depth 1 https://github.com/unconst/agcli.git .
+RUN git clone --depth 1 https://github.com/unarbos/agcli.git .
 # Patch: stub out get_coldkey_swap_scheduled (upstream chain metadata broke this function)
 RUN awk '/pub async fn get_coldkey_swap_scheduled/ { \
       print "    pub async fn get_coldkey_swap_scheduled(&self, _ss58: &str) -> Result<Option<(u64, String)>> { Ok(None) }"; \
