@@ -57,7 +57,7 @@ async function requirePayment(req: express.Request, res: express.Response, minCo
 }
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', provider: drainService.getProviderAddress(), providerName: config.providerName, chainId: config.chainId, modes: ['auto', 'plan', 'pipeline'], bittensor_native: ['chutes', 'desearch', 'numinous', 'vericore'] });
+  res.json({ status: 'ok', provider: drainService.getProviderAddress(), providerName: config.providerName, chainId: config.chainId, model:3, modes: ['auto', 'plan', 'pipeline'], bittensor_native: ['chutes', 'desearch', 'numinous', 'vericore'] });
 });
 
 app.get('/v1/models', (_req, res) => {
