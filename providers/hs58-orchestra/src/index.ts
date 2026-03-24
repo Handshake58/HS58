@@ -62,9 +62,9 @@ app.get('/health', (_req, res) => {
 
 app.get('/v1/models', (_req, res) => {
   res.json({ object: 'list', data: [
-    { id: 'orchestra/auto',     object: 'model', owned_by: 'hs58-orchestra', description: 'Full auto-orchestration. Send a goal, Orchestra plans and executes across providers.' },
-    { id: 'orchestra/plan',     object: 'model', owned_by: 'hs58-orchestra', description: 'Dry-run planning only. Returns execution plan without running it.' },
-    { id: 'orchestra/pipeline', object: 'model', owned_by: 'hs58-orchestra', description: 'User-defined pipeline with explicit steps and DAG scheduling.' },
+    { id: 'orchestra/auto',     object: 'model', created: 1742000000, owned_by: 'hs58-orchestra', name: 'Orchestra: Auto',     context_length: 128000 },
+{ id: 'orchestra/plan',     object: 'model', created: 1742000000, owned_by: 'hs58-orchestra', name: 'Orchestra: Plan',     context_length: 128000 },
+{ id: 'orchestra/pipeline', object: 'model', created: 1742000000, owned_by: 'hs58-orchestra', name: 'Orchestra: Pipeline', context_length: 128000 },
   ]});
 });
 
