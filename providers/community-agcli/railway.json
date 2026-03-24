@@ -2,7 +2,7 @@
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
     "builder": "NIXPACKS",
-    "buildCommand": "npm install && npm run build && curl -sSfL https://github.com/unarbos/agcli/releases/latest/download/agcli-linux-x86_64 -o /usr/local/bin/agcli && chmod +x /usr/local/bin/agcli"
+    "buildCommand": "npm install && npm run build && curl -sSfL https://github.com/Crimsonyx412/agcli/releases/latest/download/agcli-linux-x86_64 -o /usr/local/bin/agcli && chmod +x /usr/local/bin/agcli"
   },
   "deploy": {
     "startCommand": "npm start",
