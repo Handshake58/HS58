@@ -71,7 +71,7 @@ app.get('/v1/models', (_req, res) => {
 app.get('/v1/pricing', (_req, res) => {
   const markup = Math.round((config.markupMultiplier - 1) * 100);
   res.json({
-    provider: drainService.getProviderAddress(), providerName: config.providerName, chainId: config.chainId, currency: 'USDC', markup: `${markup}%`,
+    provider: drainService.getProviderAddress(), providerName: config.providerName, chainId: config.chainId, currency: 'USDC', decimals:6, markup: `${markup}%`,
     fees: { base_coordination: `$${formatUnits(ORCHESTRA_BASE_FEE_USDC, 6)} per orchestration`, plan_only: `$${formatUnits(ORCHESTRA_PLAN_FEE_USDC, 6)} per plan` },
     provider_cost_estimates: Object.fromEntries(Object.entries(PROVIDER_COST_ESTIMATES).map(([k, v]) => [k, `$${formatUnits(v as bigint, 6)}`])),
   });
