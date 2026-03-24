@@ -200,7 +200,7 @@ app.get('/v1/platform-stats', async (_req, res) => {
 
   const netuid = process.env.PLATFORM_NETUID || '58';
 
-  const [metagraphResult, healthResult, emissionsResult] = await Promise.allSettled([
+  const [metagraphResult, healthResult, emissionsResult, subnetListResult] = await Promise.allSettled([
     executeTool(
       'agcli/subnet-metagraph',
       JSON.stringify({ netuid: parseInt(netuid) }),
@@ -219,11 +219,18 @@ app.get('/v1/platform-stats', async (_req, res) => {
       config.agcliPath, config.subtensorEndpoint,
       config.agcliTimeoutRead, config.agcliTimeoutWrite,
     ),
+    executeTool(
+      'agcli/subnet-list',
+      JSON.stringify({}),
+      config.agcliPath, config.subtensorEndpoint,
+      config.agcliTimeoutRead, config.agcliTimeoutWrite,
+    ),
   ]);
 
   let minerCount = 0;
   let validatorCount = 0;
   let avgIncentive = 0;
+  let totalStake = 0;
   let topMiners: { uid: number; incentive: number }[] = [];
 
   if (metagraphResult.status === 'fulfilled') {
@@ -234,6 +241,8 @@ app.get('/v1/platform-stats', async (_req, res) => {
       const miners = neurons.filter((n: any) => !n.validator_permit && n.stake === 0);
       minerCount = miners.length || neurons.length;
       validatorCount = validators.length;
+
+      totalStake = neurons.reduce((s: number, n: any) => s + (Number(n.stake) || 0), 0);
 
       const incentives = neurons.map((n: any) => n.incentive ?? 0).filter((v: number) => v > 0);
       avgIncentive = incentives.length > 0
@@ -266,6 +275,27 @@ app.get('/v1/platform-stats', async (_req, res) => {
     } catch {}
   }
 
+  let tempo: number | null = null;
+  let regCost: number | null = null;
+  let maxN: number | null = null;
+  let immunityPeriod: number | null = null;
+
+  if (subnetListResult.status === 'fulfilled') {
+    try {
+      const list = JSON.parse(subnetListResult.value);
+      const subnets = Array.isArray(list) ? list : list.subnets || list.data || [];
+      const sn = subnets.find((s: any) =>
+        s.netuid === parseInt(netuid) || s.net_uid === parseInt(netuid) || s.id === parseInt(netuid)
+      );
+      if (sn) {
+        tempo = sn.tempo ?? sn.Tempo ?? null;
+        regCost = sn.reg_cost ?? sn.registration_cost ?? sn.regCost ?? sn.burn ?? null;
+        maxN = sn.max_n ?? sn.max_neurons ?? sn.maxN ?? null;
+        immunityPeriod = sn.immunity_period ?? sn.immunityPeriod ?? null;
+      }
+    } catch {}
+  }
+
   const data = {
     netuid: parseInt(netuid),
     minerCount,
@@ -274,6 +304,11 @@ app.get('/v1/platform-stats', async (_req, res) => {
     topMiners,
     healthStatus,
     totalEmission,
+    totalStake: Math.round(totalStake * 10000) / 10000,
+    tempo,
+    regCost,
+    maxN,
+    immunityPeriod,
     timestamp: new Date().toISOString(),
   };
 
