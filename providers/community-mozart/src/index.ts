@@ -194,10 +194,11 @@ app.get('/v1/pricing', (_req, res) => {
     currency:     'USDC',
     markup:       `${markup}%`,
     models: {
-      'orchestra/auto':     { inputCostPer1k: '0.005', outputCostPer1k: '0.005' },
-      'orchestra/plan':     { inputCostPer1k: '0.010', outputCostPer1k: '0.010' },
-      'orchestra/pipeline': { inputCostPer1k: '0.005', outputCostPer1k: '0.005' },
+      'orchestra/auto':     { inputPer1kTokens: '0.005', outputPer1kTokens: '0.005' },
+      'orchestra/plan':     { inputPer1kTokens: '0.010', outputPer1kTokens: '0.010' },
+      'orchestra/pipeline': { inputPer1kTokens: '0.005', outputPer1kTokens: '0.005' },
     },
+    decimals: 6,
     fees: {
       base_coordination: `$${formatUnits(MOZART_BASE_FEE_USDC, 6)} per orchestration`,
       plan_only:         `$${formatUnits(MOZART_PLAN_FEE_USDC, 6)} per plan`,
