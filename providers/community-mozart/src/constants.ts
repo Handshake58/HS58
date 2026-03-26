@@ -95,7 +95,7 @@ export const UPSTREAM = {
   chutes:     { base: 'https://llm.chutes.ai/v1' },
   openrouter: { base: 'https://openrouter.ai/api/v1' },
   desearch:   { base: 'https://apis.desearch.ai' },
-  numinous:   { base: 'https://api.numinous.ai' },
+  numinous:   { base: 'https://api.numinous.ai', forecast: 'https://api.numinous.ai/v1/predictions' },
   vericore:   { base: 'https://api.vericore.ai' },
   e2b:        { base: 'https://api.e2b.dev' },
   replicate:  { base: 'https://api.replicate.com/v1' },
