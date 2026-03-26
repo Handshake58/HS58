@@ -36,9 +36,10 @@ import { orchestrate } from './planner.js';
 import {
   MOZART_BASE_FEE_USDC,
   MOZART_PLAN_FEE_USDC,
-    DRAIN_ADDRESSES,
+  DRAIN_ADDRESSES,
+  PROVIDER_COST_ESTIMATES,
 } from './constants.js';
-import type { ProviderConfig, MozartRequest, MozartStreamEvent } from './types.js';
+import type { ProviderConfig, MozartRequest, MozartStreamEvent, ChannelState, VoucherHeader } from './types.js';
 
 dotenv();
 
@@ -102,7 +103,7 @@ async function requirePayment(
   req: express.Request,
   res: express.Response,
   minCost: bigint
-): Promise<{ voucher: any; channel: any } | null> {
+): Promise<{ voucher: VoucherHeader; channel: ChannelState | undefined } | null> {
   const header = req.headers['x-drain-voucher'] as string | undefined;
   if (!header) {
     res.status(402).set({ ...paymentHeaders(), 'X-DRAIN-Error': 'voucher_required' }).json({
@@ -378,8 +379,8 @@ app.post('/v1/chat/completions', async (req, res) => {
       const totalCostWei = MOZART_BASE_FEE_USDC +
         BigInt(Math.ceil(result.total_cost_usd * 1_000_000 * config.markupMultiplier));
 
-      drainService.storeVoucher(voucher, channel, totalCostWei);
-      const remaining = channel.deposit - channel.totalCharged - totalCostWei;
+      drainService.storeVoucher(voucher, channel!, totalCostWei);
+      const remaining = channel!.deposit - channel!.totalCharged - totalCostWei;
 
       res.write(`: X-DRAIN-Cost: ${totalCostWei.toString()}\n`);
       res.write(`: X-DRAIN-Remaining: ${remaining.toString()}\n`);
@@ -399,12 +400,12 @@ app.post('/v1/chat/completions', async (req, res) => {
     const totalCostWei = MOZART_BASE_FEE_USDC +
       BigInt(Math.ceil(result.total_cost_usd * 1_000_000 * config.markupMultiplier));
 
-    drainService.storeVoucher(voucher, channel, totalCostWei);
-    const remaining = channel.deposit - channel.totalCharged - totalCostWei;
+    drainService.storeVoucher(voucher, channel!, totalCostWei);
+    const remaining = channel!.deposit - channel!.totalCharged - totalCostWei;
 
     res.set({
       'X-DRAIN-Cost':      totalCostWei.toString(),
-      'X-DRAIN-Total':     (channel.totalCharged + totalCostWei).toString(),
+      'X-DRAIN-Total':     (channel!.totalCharged + totalCostWei).toString(),
       'X-DRAIN-Remaining': remaining.toString(),
       'X-DRAIN-Channel':   voucher.channelId,
     });
