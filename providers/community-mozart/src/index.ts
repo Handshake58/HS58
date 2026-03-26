@@ -65,7 +65,7 @@ const config: ProviderConfig = {
   autoClaimIntervalMinutes: parseInt(optEnv('AUTO_CLAIM_INTERVAL_MINUTES', '10')),
   autoClaimBufferSeconds:   parseInt(optEnv('AUTO_CLAIM_BUFFER_SECONDS', '3600')),
   // Upstream keys
-  openrouterApiKey:   requireEnv('OPENROUTER_API_KEY'),
+  openrouterApiKey:   optEnv('OPENROUTER_API_KEY', ''),
   desearchApiKey:     requireEnv('DESEARCH_API_KEY'),
   chutesApiKey:       requireEnv('CHUTES_API_KEY'),
   e2bApiKey:          process.env.E2B_API_KEY,
