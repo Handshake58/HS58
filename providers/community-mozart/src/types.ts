@@ -19,7 +19,7 @@ export interface ProviderConfig {
   autoClaimIntervalMinutes: number;
   autoClaimBufferSeconds: number;
   // Upstream keys
-  openrouterApiKey: string;
+  openrouterApiKey: string; // optional — Chutes used as primary
   desearchApiKey: string;
   chutesApiKey: string;
   e2bApiKey?: string;
