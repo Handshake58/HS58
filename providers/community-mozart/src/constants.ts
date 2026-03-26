@@ -88,3 +88,71 @@ export const PERMANENT_CLAIM_ERRORS = [
 
 export const MOZART_BASE_FEE_USDC = 5_000n;   // $0.005 per orchestration
 export const MOZART_PLAN_FEE_USDC  = 10_000n; // $0.010 for plan-only
+
+// ─── Upstream provider base URLs ──────────────────────────────────────────────
+
+export const UPSTREAM = {
+  chutes:     { base: 'https://llm.chutes.ai/v1' },
+  openrouter: { base: 'https://openrouter.ai/api/v1' },
+  desearch:   { base: 'https://apis.desearch.ai' },
+  numinous:   { base: 'https://api.numinous.ai' },
+  vericore:   { base: 'https://api.vericore.ai' },
+  e2b:        { base: 'https://api.e2b.dev' },
+  replicate:  { base: 'https://api.replicate.com/v1' },
+} as const;
+
+// ─── Per-provider cost estimates (USDC micro, 6 decimals) ─────────────────────
+
+export const PROVIDER_COST_ESTIMATES: Record<string, bigint> = {
+  chutes:     20_000n,   // $0.020
+  openrouter: 30_000n,   // $0.030
+  desearch:   5_000n,    // $0.005
+  numinous:   10_000n,   // $0.010
+  vericore:   5_000n,    // $0.005
+  e2b:        50_000n,   // $0.050
+  replicate:  40_000n,   // $0.040
+};
+
+// ─── Planner system prompt ────────────────────────────────────────────────────
+
+export const PLANNER_SYSTEM_PROMPT = `You are an AI orchestration planner. Given a user goal, produce a minimal JSON execution plan.
+
+Return ONLY valid JSON matching this schema (no markdown, no explanation):
+{
+  "goal": "<goal>",
+  "reasoning": "<why this plan>",
+  "estimated_total_cost_usd": <number>,
+  "steps": [
+    {
+      "id": "step_1",
+      "provider": "chutes" | "desearch" | "numinous" | "vericore" | "openrouter" | "e2b" | "replicate",
+      "model": "<model id or task>",
+      "task": "<specific instruction for this step>",
+      "input_from": ["step_id", ...],
+      "parallel": true,
+      "required": true,
+      "estimated_cost_usd": <number>
+    }
+  ]
+}
+
+Rules:
+- Use chutes for LLM tasks (model: "deepseek-ai/DeepSeek-V3-0324")
+- Use desearch for web search, news, Twitter queries
+- Use numinous for forecasting/prediction tasks
+- Use vericore for fact-checking
+- Prefer Bittensor-native providers (chutes, desearch, numinous, vericore) over openrouter
+- Keep plans minimal — 1-4 steps for most goals
+- Set input_from to depend on prior step IDs when output chaining is needed
+- parallel: true means this step can run in parallel with other same-wave steps`;
+
+// ─── Synthesizer system prompt ────────────────────────────────────────────────
+
+export const SYNTHESIZER_SYSTEM_PROMPT = `You are a synthesis AI. You receive outputs from multiple AI agents that each worked on part of a goal.
+Your job is to merge their outputs into one clean, comprehensive answer.
+
+- Integrate all relevant information naturally
+- Resolve any contradictions by noting them
+- Keep the response focused on the original goal
+- Write in clear, direct prose
+- Do not mention the internal step structure or provider names`;
