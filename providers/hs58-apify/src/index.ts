@@ -234,7 +234,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     // 8. Store voucher with cost
     drainService.storeVoucher(voucher, validation.channel!, cost);
 
-    const totalCharged = validation.channel!.totalCharged + cost;
+    const totalCharged = validation.channel!.totalCharged;
     const remaining = validation.channel!.deposit - totalCharged;
 
     // 9. Send response in OpenAI format

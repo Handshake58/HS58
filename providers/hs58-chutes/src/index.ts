@@ -299,10 +299,10 @@ app.post('/v1/chat/completions', async (req, res) => {
       const actualCost = calculateCost(pricing, inputTokens, outputTokens);
       drainService.storeVoucher(voucher, channelState, actualCost);
 
-      const remaining = channelState.deposit - channelState.totalCharged - actualCost;
+      const remaining = channelState.deposit - channelState.totalCharged;
       res.write(`data: [DONE]\n\n`);
       res.write(`: X-DRAIN-Cost: ${actualCost.toString()}\n`);
-      res.write(`: X-DRAIN-Total: ${(channelState.totalCharged + actualCost).toString()}\n`);
+      res.write(`: X-DRAIN-Total: ${channelState.totalCharged.toString()}\n`);
       res.write(`: X-DRAIN-Remaining: ${remaining.toString()}\n`);
       
       res.end();
@@ -337,11 +337,11 @@ app.post('/v1/chat/completions', async (req, res) => {
       }
 
       drainService.storeVoucher(voucher, channelState, actualCost);
-      const remaining = channelState.deposit - channelState.totalCharged - actualCost;
+      const remaining = channelState.deposit - channelState.totalCharged;
 
       res.set({
         'X-DRAIN-Cost': actualCost.toString(),
-        'X-DRAIN-Total': (channelState.totalCharged + actualCost).toString(),
+        'X-DRAIN-Total': channelState.totalCharged.toString(),
         'X-DRAIN-Remaining': remaining.toString(),
         'X-DRAIN-Channel': voucher.channelId,
       }).json(completion);

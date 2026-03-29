@@ -283,7 +283,7 @@ app.post('/v1/files/upload', (req, res, next) => {
 
       drainService.storeVoucher(voucher, voucherValidation.channel!, cost);
 
-      const totalCharged = voucherValidation.channel!.totalCharged + cost;
+      const totalCharged = voucherValidation.channel!.totalCharged;
       const remaining = voucherValidation.channel!.deposit - totalCharged;
 
       res.set({
@@ -408,7 +408,7 @@ app.post('/v1/chat/completions', async (req, res) => {
 
     drainService.storeVoucher(voucher, voucherValidation.channel!, cost);
 
-    const totalCharged = voucherValidation.channel!.totalCharged + cost;
+    const totalCharged = voucherValidation.channel!.totalCharged;
     const remaining = voucherValidation.channel!.deposit - totalCharged;
 
     const resultContent = JSON.stringify({

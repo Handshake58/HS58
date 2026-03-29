@@ -338,7 +338,7 @@ app.post('/v1/chat/completions', async (req, res) => {
   // 7. Store voucher and update channel state
   drainService.storeVoucher(voucher, validation.channel!, cost);
 
-  const totalCharged = validation.channel!.totalCharged + cost;
+  const totalCharged = validation.channel!.totalCharged;
   const remaining = validation.channel!.deposit - totalCharged;
 
   // 8. Respond in OpenAI chat completion format

@@ -347,7 +347,7 @@ app.post('/v1/chat/completions', async (req, res) => {
 
     drainService.storeVoucher(voucher, validation.channel!, cost);
 
-    const totalCharged = validation.channel!.totalCharged + cost;
+    const totalCharged = validation.channel!.totalCharged;
     const remaining = validation.channel!.deposit - totalCharged;
 
     res.set({

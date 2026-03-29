@@ -314,10 +314,10 @@ app.post('/v1/chat/completions', async (req, res) => {
       drainService.storeVoucher(voucher, channelState, actualCost);
 
       // Send cost info
-      const remaining = channelState.deposit - channelState.totalCharged - actualCost;
+      const remaining = channelState.deposit - channelState.totalCharged;
       res.write(`data: [DONE]\n\n`);
       res.write(`: X-DRAIN-Cost: ${actualCost.toString()}\n`);
-      res.write(`: X-DRAIN-Total: ${(channelState.totalCharged + actualCost).toString()}\n`);
+      res.write(`: X-DRAIN-Total: ${channelState.totalCharged.toString()}\n`);
       res.write(`: X-DRAIN-Remaining: ${remaining.toString()}\n`);
       
       res.end();
@@ -358,12 +358,12 @@ app.post('/v1/chat/completions', async (req, res) => {
       drainService.storeVoucher(voucher, channelState, actualCost);
 
       // Calculate remaining
-      const remaining = channelState.deposit - channelState.totalCharged - actualCost;
+      const remaining = channelState.deposit - channelState.totalCharged;
 
       // Send response (already OpenAI format)
       res.set({
         'X-DRAIN-Cost': actualCost.toString(),
-        'X-DRAIN-Total': (channelState.totalCharged + actualCost).toString(),
+        'X-DRAIN-Total': channelState.totalCharged.toString(),
         'X-DRAIN-Remaining': remaining.toString(),
         'X-DRAIN-Channel': voucher.channelId,
       }).json(completion);

@@ -335,7 +335,7 @@ app.post('/v1/emails/send', async (req, res) => {
 
   drainService.storeVoucher(voucher, voucherValidation.channel!, cost);
 
-  const totalCharged = voucherValidation.channel!.totalCharged + cost;
+  const totalCharged = voucherValidation.channel!.totalCharged;
   const result = enqueueAndRespond(
     validation.parsed!, cost, totalCharged, voucherValidation.channel!.deposit, voucher.channelId,
   );
@@ -418,7 +418,7 @@ app.post('/v1/chat/completions', async (req, res) => {
 
   drainService.storeVoucher(voucher, voucherValidation.channel!, cost);
 
-  const totalCharged = voucherValidation.channel!.totalCharged + cost;
+  const totalCharged = voucherValidation.channel!.totalCharged;
   const result = enqueueAndRespond(
     validation.parsed!, cost, totalCharged, voucherValidation.channel!.deposit, voucher.channelId,
   );

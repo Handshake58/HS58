@@ -374,7 +374,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     // 3. Calculate cost
     const actualCost = calculateCost(pricing, durationSeconds);
     drainService.storeVoucher(voucher, channelState, actualCost);
-    const remaining = channelState.deposit - channelState.totalCharged - actualCost;
+    const remaining = channelState.deposit - channelState.totalCharged;
 
     // 4. Format output based on requested format
     const fmt = input.response_format || 'text';
@@ -415,7 +415,7 @@ app.post('/v1/chat/completions', async (req, res) => {
     // 5. Return OpenAI chat completion format
     res.set({
       'X-DRAIN-Cost': actualCost.toString(),
-      'X-DRAIN-Total': (channelState.totalCharged + actualCost).toString(),
+      'X-DRAIN-Total': channelState.totalCharged.toString(),
       'X-DRAIN-Remaining': remaining.toString(),
       'X-DRAIN-Channel': voucher.channelId,
     }).json({
@@ -587,11 +587,11 @@ app.post('/v1/audio/transcriptions', upload.single('file'), async (req, res) => 
 
     drainService.storeVoucher(voucher, channelState, actualCost);
 
-    const remaining = channelState.deposit - channelState.totalCharged - actualCost;
+    const remaining = channelState.deposit - channelState.totalCharged;
 
     const drainHeaders = {
       'X-DRAIN-Cost': actualCost.toString(),
-      'X-DRAIN-Total': (channelState.totalCharged + actualCost).toString(),
+      'X-DRAIN-Total': channelState.totalCharged.toString(),
       'X-DRAIN-Remaining': remaining.toString(),
       'X-DRAIN-Channel': voucher.channelId,
       'X-DRAIN-Duration': durationSeconds.toFixed(2),
