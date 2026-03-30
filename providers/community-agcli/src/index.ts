@@ -49,6 +49,16 @@ function requireAdmin(req: express.Request, res: express.Response): boolean {
   return true;
 }
 
+// --- Shared tool executor (wraps config boilerplate) ---
+async function runTool(tool: string, input: string | object = {}): Promise<string> {
+  const inputStr = typeof input === 'string' ? input : JSON.stringify(input);
+  return executeTool(
+    tool, inputStr,
+    config.agcliPath, config.subtensorEndpoint,
+    config.agcliTimeoutRead, config.agcliTimeoutWrite,
+  );
+}
+
 // ============================================================
 // Routes
 // ============================================================
@@ -187,6 +197,23 @@ app.get('/health', (_req, res) => {
   });
 });
 
+// --- Admin Execute (direct tool access, no DRAIN voucher) ---
+
+app.post('/v1/internal/execute', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const { tool, input } = req.body;
+  if (!tool || !isModelSupported(tool)) {
+    res.status(400).json({ error: `Unknown tool: ${tool}. Available: ${getSupportedModels().join(', ')}` });
+    return;
+  }
+  try {
+    const raw = await runTool(tool, input || {});
+    res.json({ tool, result: JSON.parse(raw), timestamp: new Date().toISOString() });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message?.slice(0, 500) || 'execution failed' });
+  }
+});
+
 // --- Platform Stats (free, no DRAIN voucher) ---
 
 let platformStatsCache: { data: any; ts: number } | null = null;
@@ -200,31 +227,12 @@ app.get('/v1/platform-stats', async (_req, res) => {
 
   const netuid = process.env.PLATFORM_NETUID || '58';
 
+  const nid = parseInt(netuid);
   const [metagraphResult, healthResult, emissionsResult, subnetListResult] = await Promise.allSettled([
-    executeTool(
-      'agcli/subnet-metagraph',
-      JSON.stringify({ netuid: parseInt(netuid) }),
-      config.agcliPath, config.subtensorEndpoint,
-      config.agcliTimeoutRead, config.agcliTimeoutWrite,
-    ),
-    executeTool(
-      'agcli/subnet-health',
-      JSON.stringify({ netuid: parseInt(netuid) }),
-      config.agcliPath, config.subtensorEndpoint,
-      config.agcliTimeoutRead, config.agcliTimeoutWrite,
-    ),
-    executeTool(
-      'agcli/subnet-emissions',
-      JSON.stringify({ netuid: parseInt(netuid) }),
-      config.agcliPath, config.subtensorEndpoint,
-      config.agcliTimeoutRead, config.agcliTimeoutWrite,
-    ),
-    executeTool(
-      'agcli/subnet-list',
-      JSON.stringify({}),
-      config.agcliPath, config.subtensorEndpoint,
-      config.agcliTimeoutRead, config.agcliTimeoutWrite,
-    ),
+    runTool('agcli/subnet-metagraph', { netuid: nid }),
+    runTool('agcli/subnet-health', { netuid: nid }),
+    runTool('agcli/subnet-emissions', { netuid: nid }),
+    runTool('agcli/subnet-list'),
   ]);
 
   let minerCount = 0;
@@ -369,14 +377,7 @@ app.post('/v1/chat/completions', async (req, res) => {
 
   let result: string;
   try {
-    result = await executeTool(
-      model,
-      input,
-      config.agcliPath,
-      config.subtensorEndpoint,
-      config.agcliTimeoutRead,
-      config.agcliTimeoutWrite,
-    );
+    result = await runTool(model, input);
   } catch (e: any) {
     res.status(500).json({ error: { message: `Tool execution failed: ${e.message?.slice(0, 200)}` } });
     return;
