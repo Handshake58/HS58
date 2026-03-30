@@ -137,7 +137,7 @@ Return ONLY valid JSON matching this schema (no markdown, no explanation):
 }
 
 Rules:
-- Use chutes for LLM tasks (model: "deepseek-ai/DeepSeek-V3-0324")
+- Use chutes for LLM tasks (model: "deepseek-ai/DeepSeek-V3-0324-TEE")
 - Use desearch for web search, news, Twitter queries
 - Use numinous for forecasting/prediction tasks
 - Use vericore for fact-checking
