@@ -54,7 +54,8 @@ export async function buildPlan(
     temperature: 0.1,
   });
 
-  const raw = completion.choices[0]?.message?.content ?? '{}';
+  const msg = completion.choices[0]?.message;
+  const raw = (msg?.content || (msg as any)?.reasoning_content) ?? '{}';
 
   // Strip markdown code fences if the model wraps in ```json
   const cleaned = raw.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim();
@@ -165,7 +166,8 @@ async function synthesize(
     temperature: 0.4,
   });
 
-  return completion.choices[0]?.message?.content ?? 'Unable to synthesize result.';
+  const synthMsg = completion.choices[0]?.message;
+  return (synthMsg?.content || (synthMsg as any)?.reasoning_content) ?? 'Unable to synthesize result.';
 }
 
 // ─── Orchestrate ─────────────────────────────────────────────────────────────

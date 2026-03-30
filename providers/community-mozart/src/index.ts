@@ -74,8 +74,8 @@ const config: ProviderConfig = {
   // Orchestra
   markupMultiplier:   1 + parseInt(optEnv('MARKUP_PERCENT', '30')) / 100,
   maxPlanSteps:       parseInt(optEnv('MAX_PLAN_STEPS', '6')),
-  plannerModel:       optEnv('PLANNER_MODEL',     'deepseek-ai/DeepSeek-R1'),
-  synthesizerModel:   optEnv('SYNTHESIZER_MODEL', 'deepseek-ai/DeepSeek-V3-0324'),
+  plannerModel:       optEnv('PLANNER_MODEL', 'deepseek-ai/DeepSeek-V3-0324-TEE'),
+  synthesizerModel:   optEnv('SYNTHESIZER_MODEL', 'deepseek-ai/DeepSeek-V3-0324-TEE'),
 };
 
 // ─── Services ────────────────────────────────────────────────────────────────
