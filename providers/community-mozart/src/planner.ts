@@ -1,12 +1,11 @@
 /**
  * Orchestra Planner + Orchestrator
  *
- * The planner uses an LLM to produce a minimal execution plan.
+ * The planner uses raw fetch (same as executor) to avoid OpenAI SDK baseURL quirks.
  * The orchestrator runs the plan in topological order,
  * parallelizing independent steps and feeding outputs forward.
  */
 
-import OpenAI from 'openai';
 import type {
   ExecutionPlan,
   OrchestrationResult,
@@ -24,17 +23,41 @@ import {
 } from './constants.js';
 import { executeStep } from './executor.js';
 
+// ─── Raw LLM helper (same pattern as executor, no SDK dependency) ──────────────
+
+async function chutesChat(
+  apiKey: string,
+  model: string,
+  messages: { role: string; content: string }[],
+  maxTokens = 1024,
+  temperature = 0.1
+): Promise<string> {
+  const res = await fetch(`${UPSTREAM.chutes.base}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature }),
+    signal: AbortSignal.timeout(90_000),
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
+  }
+
+  const data = await res.json();
+  const msg = data.choices?.[0]?.message;
+  return (msg?.content || msg?.reasoning_content) ?? '';
+}
+
 // ─── Planner ──────────────────────────────────────────────────────────────────
 
 export async function buildPlan(
   request: MozartRequest,
   config: ProviderConfig
 ): Promise<ExecutionPlan> {
-  const client = new OpenAI({
-    apiKey: config.chutesApiKey,
-    baseURL: UPSTREAM.chutes.base,
-  });
-
   const userMessage = [
     `Goal: ${request.goal}`,
     request.context ? `Context: ${request.context}` : '',
@@ -44,18 +67,16 @@ export async function buildPlan(
       : '',
   ].filter(Boolean).join('\n');
 
-  const completion = await client.chat.completions.create({
-    model:       config.plannerModel,
-    messages: [
-      { role: 'system',  content: PLANNER_SYSTEM_PROMPT },
-      { role: 'user',    content: userMessage },
+  const raw = await chutesChat(
+    config.chutesApiKey,
+    config.plannerModel,
+    [
+      { role: 'system', content: PLANNER_SYSTEM_PROMPT },
+      { role: 'user',   content: userMessage },
     ],
-    max_tokens:  1024,
-    temperature: 0.1,
-  });
-
-  const msg = completion.choices[0]?.message;
-  const raw = (msg?.content || (msg as any)?.reasoning_content) ?? '{}';
+    1024,
+    0.1
+  );
 
   // Strip markdown code fences if the model wraps in ```json
   const cleaned = raw.replace(/^```(?:json)?\n?/m, '').replace(/\n?```$/m, '').trim();
@@ -105,8 +126,6 @@ export async function buildPlan(
 }
 
 // ─── Topological scheduler ────────────────────────────────────────────────────
-// Groups steps into "waves" where all steps in a wave can run in parallel.
-// Wave N+1 starts only after wave N completes.
 
 function buildWaves(steps: PlanStep[]): PlanStep[][] {
   const completed = new Set<string>();
@@ -125,7 +144,6 @@ function buildWaves(steps: PlanStep[]): PlanStep[][] {
     }
 
     if (wave.length === 0) {
-      // Circular dependency or unresolvable — just run the rest sequentially
       waves.push(remaining);
       break;
     }
@@ -145,29 +163,22 @@ async function synthesize(
   results: StepResult[],
   config: ProviderConfig
 ): Promise<string> {
-  const client = new OpenAI({
-    apiKey: config.chutesApiKey,
-    baseURL: UPSTREAM.chutes.base,
-  });
-
   const stepSummaries = results.map(r =>
     r.status === 'done'
       ? `[${r.step_id} — ${r.provider}/${r.model}]\n${r.output}`
       : `[${r.step_id} — ${r.provider}/${r.model}] FAILED: ${r.error}`
   ).join('\n\n---\n\n');
 
-  const completion = await client.chat.completions.create({
-    model:       config.synthesizerModel,
-    messages: [
-      { role: 'system',  content: SYNTHESIZER_SYSTEM_PROMPT },
-      { role: 'user',    content: `Goal: ${goal}\n\nStep outputs:\n\n${stepSummaries}` },
+  return chutesChat(
+    config.chutesApiKey,
+    config.synthesizerModel,
+    [
+      { role: 'system', content: SYNTHESIZER_SYSTEM_PROMPT },
+      { role: 'user',   content: `Goal: ${goal}\n\nStep outputs:\n\n${stepSummaries}` },
     ],
-    max_tokens:  2048,
-    temperature: 0.4,
-  });
-
-  const synthMsg = completion.choices[0]?.message;
-  return (synthMsg?.content || (synthMsg as any)?.reasoning_content) ?? 'Unable to synthesize result.';
+    2048,
+    0.4
+  );
 }
 
 // ─── Orchestrate ─────────────────────────────────────────────────────────────
@@ -199,7 +210,6 @@ export async function orchestrate(
   emit('plan', plan);
 
   if (request.mode === 'plan') {
-    // Dry-run: return plan without executing
     return {
       goal:             plan.goal,
       plan,
@@ -231,11 +241,6 @@ export async function orchestrate(
         emit('step_done', result);
       } else {
         emit('step_fail', result);
-        // Abort if a required step failed
-        const step = plan.steps.find(s => s.id === result.step_id);
-        if (step?.required !== false) {
-          // Still continue — let synthesizer work with what we have
-        }
       }
     }
   }
