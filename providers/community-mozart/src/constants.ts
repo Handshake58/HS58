@@ -94,7 +94,7 @@ export const MOZART_PLAN_FEE_USDC  = 10_000n; // $0.010 for plan-only
 export const UPSTREAM = {
   chutes:     { base: 'https://llm.chutes.ai/v1' },
   openrouter: { base: 'https://openrouter.ai/api/v1' },
-  desearch:   { base: 'https://apis.desearch.ai' },
+  desearch:   { base: 'https://api.desearch.ai' },
   numinous:   { base: 'https://api.numinous.ai', forecast: 'https://api.numinous.ai/v1/predictions' },
   vericore:   { base: 'https://api.vericore.ai' },
   e2b:        { base: 'https://api.e2b.dev' },
@@ -125,7 +125,7 @@ Return ONLY valid JSON matching this schema (no markdown, no explanation):
   "steps": [
     {
       "id": "step_1",
-      "provider": "chutes" | "desearch" | "numinous" | "vericore" | "openrouter" | "e2b" | "replicate",
+      "provider": "chutes" | "desearch" | "numinous" | "vericore" | "e2b" | "replicate",
       "model": "<model id or task>",
       "task": "<specific instruction for this step>",
       "input_from": ["step_id", ...],
@@ -141,7 +141,8 @@ Rules:
 - Use desearch for web search, news, Twitter queries
 - Use numinous for forecasting/prediction tasks
 - Use vericore for fact-checking
-- Prefer Bittensor-native providers (chutes, desearch, numinous, vericore) over openrouter
+- ONLY use providers: chutes, desearch, numinous, vericore, e2b, replicate
+- NEVER use openrouter — it is not available
 - Keep plans minimal — 1-4 steps for most goals
 - Set input_from to depend on prior step IDs when output chaining is needed
 - parallel: true means this step can run in parallel with other same-wave steps`;

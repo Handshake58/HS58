@@ -52,6 +52,10 @@ async function runChutes(step: PlanStep, config: ProviderConfig, context: string
 }
 
 async function runOpenRouter(step: PlanStep, config: ProviderConfig, context: string): Promise<string> {
+  if (!config.openrouterApiKey) {
+    // Fall back to chutes if openrouter key not configured
+    return runChutes(step, config, context);
+  }
   return llmChat(
     UPSTREAM.openrouter.base, config.openrouterApiKey, step.model,
     [{ role: 'user', content: context ? `Context:\n${context}\n\nTask: ${step.task}` : step.task }],
