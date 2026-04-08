@@ -1,5 +1,5 @@
 import { execFile } from 'child_process';
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { mkdirSync, rmSync, existsSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { tmpdir } from 'os';
@@ -14,11 +14,39 @@ function sanitizeArg(arg: string): string {
   return arg;
 }
 
+function execFilePromise(
+  cmd: string,
+  args: string[],
+  opts: { timeout?: number; env?: Record<string, string>; maxBuffer?: number } = {}
+): Promise<AgcliResult> {
+  return new Promise((resolve, reject) => {
+    const child = execFile(cmd, args, {
+      timeout: opts.timeout ?? 30_000,
+      maxBuffer: opts.maxBuffer ?? 10 * 1024 * 1024,
+      env: opts.env,
+    }, (error, stdout, stderr) => {
+      if (error && (error as any).killed) {
+        reject(new Error(`agcli timed out after ${opts.timeout ?? 30_000}ms`));
+        return;
+      }
+      resolve({
+        stdout: stdout.toString(),
+        stderr: stderr.toString(),
+        exitCode: error ? (error as any).code ?? 1 : 0,
+      });
+    });
+    child.on('error', (err) => {
+      reject(new Error(`Failed to execute agcli: ${err.message}`));
+    });
+  });
+}
+
 export function execAgcli(
   agcliPath: string,
   args: string[],
   opts: {
     walletDir?: string;
+    walletName?: string;
     timeout?: number;
     endpoint?: string;
     password?: string;
@@ -29,6 +57,9 @@ export function execAgcli(
   if (opts.endpoint) {
     fullArgs.unshift('--endpoint', opts.endpoint);
   }
+  if (opts.walletName) {
+    fullArgs.unshift('-w', opts.walletName);
+  }
   if (opts.walletDir) {
     fullArgs.unshift('--wallet-dir', opts.walletDir);
   }
@@ -37,58 +68,53 @@ export function execAgcli(
   if (opts.password) {
     env['AGCLI_PASSWORD'] = opts.password;
   }
+  env['AGCLI_HOTKEY'] = 'default';
 
-  const timeout = opts.timeout ?? 30_000;
-
-  return new Promise((resolve, reject) => {
-    const child = execFile(
-      agcliPath,
-      fullArgs,
-      {
-        timeout,
-        maxBuffer: 10 * 1024 * 1024,
-        env,
-      },
-      (error, stdout, stderr) => {
-        if (error && (error as any).killed) {
-          reject(new Error(`agcli timed out after ${timeout}ms`));
-          return;
-        }
-
-        resolve({
-          stdout: stdout.toString(),
-          stderr: stderr.toString(),
-          exitCode: error ? (error as any).code ?? 1 : 0,
-        });
-      }
-    );
-
-    child.on('error', (err) => {
-      reject(new Error(`Failed to execute agcli: ${err.message}`));
-    });
+  return execFilePromise(agcliPath, fullArgs, {
+    timeout: opts.timeout ?? 30_000,
+    env,
   });
 }
 
 export async function withTempWallet<T>(
-  walletData: { coldkey: string; hotkey?: string; name?: string },
-  fn: (walletDir: string, walletName: string) => Promise<T>
+  walletData: { coldkeyMnemonic: string; hotkeyMnemonic?: string; name?: string },
+  agcliPath: string,
+  fn: (walletDir: string, walletName: string, password: string) => Promise<T>
 ): Promise<T> {
   const id = randomUUID().slice(0, 8);
   const walletDir = join(tmpdir(), `agcli-${id}`);
-  const walletName = walletData.name || 'agent';
-  const coldkeyDir = join(walletDir, walletName, 'coldkey');
-  const hotkeyDir = join(walletDir, walletName, 'hotkeys');
+  const walletName = walletData.name || 'default';
+  const tmpPassword = `tmp_${id}`;
 
   try {
-    mkdirSync(coldkeyDir, { recursive: true });
-    writeFileSync(join(coldkeyDir, 'coldkey'), walletData.coldkey, { mode: 0o600 });
+    mkdirSync(walletDir, { recursive: true });
 
-    if (walletData.hotkey) {
-      mkdirSync(hotkeyDir, { recursive: true });
-      writeFileSync(join(hotkeyDir, 'default'), walletData.hotkey, { mode: 0o600 });
+    const importResult = await execFilePromise(agcliPath, [
+      '--wallet-dir', walletDir, '--yes',
+      'wallet', 'import',
+      '--name', walletName,
+      '--mnemonic', walletData.coldkeyMnemonic,
+      '--password', tmpPassword,
+    ], { timeout: 15_000 });
+
+    if (importResult.exitCode !== 0) {
+      throw new Error(`wallet import failed: ${importResult.stderr.trim() || `exit ${importResult.exitCode}`}`);
     }
 
-    return await fn(walletDir, walletName);
+    if (walletData.hotkeyMnemonic) {
+      const regenResult = await execFilePromise(agcliPath, [
+        '--wallet-dir', walletDir, '-w', walletName, '--yes',
+        'wallet', 'regen-hotkey',
+        '--name', 'default',
+        '--mnemonic', walletData.hotkeyMnemonic,
+      ], { timeout: 15_000 });
+
+      if (regenResult.exitCode !== 0) {
+        throw new Error(`hotkey regen failed: ${regenResult.stderr.trim() || `exit ${regenResult.exitCode}`}`);
+      }
+    }
+
+    return await fn(walletDir, walletName, tmpPassword);
   } finally {
     if (existsSync(walletDir)) {
       rmSync(walletDir, { recursive: true, force: true });
@@ -115,9 +141,8 @@ export function buildReadArgs(command: string[], input: Record<string, any>): st
 export function buildWriteArgs(
   command: string[],
   input: Record<string, any>,
-  walletName: string
 ): string[] {
-  const args = [...command, '--wallet', walletName];
+  const args = [...command];
 
   for (const [key, value] of Object.entries(input)) {
     if (value === undefined || value === null) continue;

@@ -140,20 +140,19 @@ Send JSON with the required fields:
 ${writeToolDocs}
 
 ### Write Input Format
-Write tools require your Bittensor wallet keyfiles in the request:
+Write tools require Bittensor wallet mnemonics:
 {
   "wallet": {
-    "coldkey": "<contents of your coldkey file>",
-    "hotkey": "<contents of your hotkey file>"
+    "coldkeyMnemonic": "<12-word coldkey mnemonic>",
+    "hotkeyMnemonic": "<12-word hotkey mnemonic>"
   },
-  "password": "<wallet password if encrypted>",
   "netuid": 1,
   "amount": 10
 }
 
 For weights: {"wallet": {...}, "netuid": 1, "weights": "0:100,1:200"}
 
-SECURITY: Wallet data is written to a temporary directory, used once, and immediately deleted. It is never logged or stored.
+SECURITY: Mnemonics are imported into a temp wallet (encrypted coldkey via agcli wallet import), used once, and the entire directory is deleted immediately. Nothing is logged or stored. Max 3 concurrent writes.
 
 ## Examples
 
@@ -171,7 +170,7 @@ Explain concept:
 
 Stake (with wallet):
   model: "agcli/stake-add"
-  messages: [{"role":"user","content":"{\\"wallet\\":{\\"coldkey\\":\\"...\\",\\"hotkey\\":\\"...\\"},\\"password\\":\\"mypass\\",\\"netuid\\":1,\\"amount\\":10}"}]
+  messages: [{"role":"user","content":"{\\"wallet\\":{\\"coldkeyMnemonic\\":\\"word1 word2 ...\\",\\"hotkeyMnemonic\\":\\"word1 word2 ...\\"},\\"netuid\\":1,\\"amount\\":10}"}]
 
 ## Response Format
 The assistant message contains a JSON string with the agcli output.

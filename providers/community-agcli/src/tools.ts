@@ -34,10 +34,10 @@ function requireBlockNumber(value: any, field: string): string | null {
 
 function requireWallet(input: any): string | null {
   if (!input.wallet || typeof input.wallet !== 'object') {
-    return 'wallet object required: { "coldkey": "...", "hotkey": "..." }';
+    return 'wallet object required: { "coldkeyMnemonic": "...", "hotkeyMnemonic": "..." }';
   }
-  if (typeof input.wallet.coldkey !== 'string' || !input.wallet.coldkey) {
-    return 'wallet.coldkey is required';
+  if (typeof input.wallet.coldkeyMnemonic !== 'string' || !input.wallet.coldkeyMnemonic) {
+    return 'wallet.coldkeyMnemonic is required';
   }
   return null;
 }
@@ -153,7 +153,7 @@ export const readTools: ToolDefinition[] = [
       }
       return null;
     },
-    buildArgs: (input) => ['explain', input.topic],
+    buildArgs: (input) => buildReadArgs(['explain'], { topic: input.topic }),
   },
   {
     modelId: 'agcli/block-info',
@@ -185,7 +185,6 @@ export const writeTools: ToolDefinition[] = [
     buildArgs: (input) => buildWriteArgs(
       ['stake', 'add'],
       { netuid: input.netuid, amount: input.amount },
-      input.wallet.name || 'agent'
     ),
   },
   {
@@ -204,7 +203,6 @@ export const writeTools: ToolDefinition[] = [
     buildArgs: (input) => buildWriteArgs(
       ['stake', 'remove'],
       { netuid: input.netuid, amount: input.amount },
-      input.wallet.name || 'agent'
     ),
   },
   {
@@ -227,7 +225,6 @@ export const writeTools: ToolDefinition[] = [
     buildArgs: (input) => buildWriteArgs(
       ['weights', 'set'],
       { netuid: input.netuid, weights: input.weights },
-      input.wallet.name || 'agent'
     ),
   },
   {
@@ -244,11 +241,14 @@ export const writeTools: ToolDefinition[] = [
       }
       return null;
     },
-    buildArgs: (input) => buildWriteArgs(
-      ['weights', 'commit-reveal'],
-      { netuid: input.netuid, weights: input.weights, wait: '' },
-      input.wallet.name || 'agent'
-    ),
+    buildArgs: (input) => {
+      const args = buildWriteArgs(
+        ['weights', 'commit-reveal'],
+        { netuid: input.netuid, weights: input.weights },
+      );
+      args.push('--wait');
+      return args;
+    },
   },
   {
     modelId: 'agcli/register',
@@ -260,9 +260,8 @@ export const writeTools: ToolDefinition[] = [
       return requireNetuid(input.netuid);
     },
     buildArgs: (input) => buildWriteArgs(
-      ['subnet', 'register'],
+      ['subnet', 'register-neuron'],
       { netuid: input.netuid },
-      input.wallet.name || 'agent'
     ),
   },
 ];
@@ -284,6 +283,29 @@ export function getAllModelIds(): string[] {
 
 export function isWriteTool(modelId: string): boolean {
   return toolMap.get(modelId)?.requiresWallet === true;
+}
+
+const MAX_CONCURRENT_WRITES = 3;
+let activeWrites = 0;
+const writeQueue: Array<{ resolve: () => void }> = [];
+
+function acquireWriteSlot(): Promise<void> {
+  if (activeWrites < MAX_CONCURRENT_WRITES) {
+    activeWrites++;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    writeQueue.push({ resolve });
+  });
+}
+
+function releaseWriteSlot(): void {
+  const next = writeQueue.shift();
+  if (next) {
+    next.resolve();
+  } else {
+    activeWrites--;
+  }
 }
 
 export async function executeTool(
@@ -313,20 +335,25 @@ export async function executeTool(
 
   try {
     if (tool.requiresWallet) {
-      const walletData = input.wallet;
-      const password = input.password;
+      await acquireWriteSlot();
+      try {
+        const walletData = input.wallet;
 
-      return await withTempWallet(walletData, async (walletDir, walletName) => {
-        const args = tool.buildArgs({ ...input, wallet: { ...walletData, name: walletName } });
-        const result = await execAgcli(agcliPath, args, {
-          walletDir,
-          timeout: timeoutWrite,
-          endpoint,
-          password,
+        return await withTempWallet(walletData, agcliPath, async (walletDir, walletName, password) => {
+          const args = tool.buildArgs(input);
+          const result = await execAgcli(agcliPath, args, {
+            walletDir,
+            walletName,
+            timeout: timeoutWrite,
+            endpoint,
+            password,
+          });
+          const parsed = parseAgcliOutput(result);
+          return JSON.stringify(parsed);
         });
-        const parsed = parseAgcliOutput(result);
-        return JSON.stringify(parsed);
-      });
+      } finally {
+        releaseWriteSlot();
+      }
     } else {
       const args = tool.buildArgs(input);
       const result = await execAgcli(agcliPath, args, {
