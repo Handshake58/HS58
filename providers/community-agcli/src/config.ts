@@ -36,7 +36,19 @@ export function loadModels(): void {
     ['agcli/audit',            0.02],
     ['agcli/doctor',           0.005],
     ['agcli/explain',          0.005],
-    ['agcli/block-info',       0.01],
+    ['agcli/block-info',           0.01],
+    ['agcli/block-latest',         0.005],
+    ['agcli/view-dynamic',         0.01],
+    ['agcli/view-account',         0.015],
+    ['agcli/view-network',         0.01],
+    ['agcli/subnet-cost',          0.01],
+    ['agcli/subnet-liquidity',     0.01],
+    ['agcli/subnet-hyperparams',   0.01],
+    ['agcli/view-subnet-analytics',  0.02],
+    ['agcli/view-staking-analytics', 0.02],
+    ['agcli/view-swap-sim',        0.01],
+    ['agcli/view-nominations',     0.01],
+    ['agcli/identity-show',        0.01],
   ];
 
   const writeModels: [string, number][] = [
@@ -45,6 +57,16 @@ export function loadModels(): void {
     ['agcli/weights-set',           0.05],
     ['agcli/weights-commit-reveal', 0.05],
     ['agcli/register',              0.03],
+    ['agcli/transfer',              0.03],
+    ['agcli/transfer-all',          0.03],
+    ['agcli/serve-axon',            0.03],
+    ['agcli/stake-recycle-alpha',   0.05],
+    ['agcli/stake-unstake-all',     0.05],
+    ['agcli/stake-burn-alpha',      0.05],
+    ['agcli/stake-move',            0.05],
+    ['agcli/weights-reveal',        0.03],
+    ['agcli/subnet-create',         0.05],
+    ['agcli/subnet-dissolve',       0.05],
   ];
 
   for (const [id, price] of [...readModels, ...writeModels]) {

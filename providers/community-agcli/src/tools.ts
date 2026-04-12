@@ -162,6 +162,105 @@ export const readTools: ToolDefinition[] = [
     validate: (input) => requireBlockNumber(input.block, 'block'),
     buildArgs: (input) => buildReadArgs(['block', 'info'], { block: input.block }),
   },
+  {
+    modelId: 'agcli/block-latest',
+    description: 'Get latest block hash, number, and timestamp',
+    requiresWallet: false,
+    validate: () => null,
+    buildArgs: () => buildReadArgs(['block', 'latest'], {}),
+  },
+  {
+    modelId: 'agcli/view-dynamic',
+    description: 'Dynamic TAO pricing: subnet alpha prices, pool balances, volumes',
+    requiresWallet: false,
+    validate: () => null,
+    buildArgs: () => buildReadArgs(['view', 'dynamic'], {}),
+  },
+  {
+    modelId: 'agcli/view-account',
+    description: 'Full account explorer: balance, stakes, identity, delegate info',
+    requiresWallet: false,
+    validate: (input) => requireSs58(input.address, 'address'),
+    buildArgs: (input) => buildReadArgs(['view', 'account'], { address: input.address }),
+  },
+  {
+    modelId: 'agcli/view-network',
+    description: 'Global Bittensor network overview',
+    requiresWallet: false,
+    validate: () => null,
+    buildArgs: () => buildReadArgs(['view', 'network'], {}),
+  },
+  {
+    modelId: 'agcli/subnet-cost',
+    description: 'Registration cost and trend for a subnet',
+    requiresWallet: false,
+    validate: (input) => requireNetuid(input.netuid),
+    buildArgs: (input) => buildReadArgs(['subnet', 'cost'], { netuid: input.netuid }),
+  },
+  {
+    modelId: 'agcli/subnet-liquidity',
+    description: 'AMM liquidity depth and slippage estimates for a subnet',
+    requiresWallet: false,
+    validate: (input) => requireNetuid(input.netuid),
+    buildArgs: (input) => buildReadArgs(['subnet', 'liquidity'], { netuid: input.netuid }),
+  },
+  {
+    modelId: 'agcli/subnet-hyperparams',
+    description: 'Subnet hyperparameters: tempo, immunity period, max neurons, min stake, etc.',
+    requiresWallet: false,
+    validate: (input) => requireNetuid(input.netuid),
+    buildArgs: (input) => buildReadArgs(['subnet', 'hyperparameters'], { netuid: input.netuid }),
+  },
+  {
+    modelId: 'agcli/view-subnet-analytics',
+    description: 'Subnet analytics: miner/validator stats, economics, top performers',
+    requiresWallet: false,
+    validate: (input) => requireNetuid(input.netuid),
+    buildArgs: (input) => buildReadArgs(['view', 'subnet-analytics'], { netuid: input.netuid }),
+  },
+  {
+    modelId: 'agcli/view-staking-analytics',
+    description: 'Staking analytics: APY estimates, emission projections',
+    requiresWallet: false,
+    validate: (input) => requireSs58(input.address, 'address'),
+    buildArgs: (input) => buildReadArgs(['view', 'staking-analytics'], { address: input.address }),
+  },
+  {
+    modelId: 'agcli/view-swap-sim',
+    description: 'Simulate TAO/Alpha swap with slippage and fee estimates',
+    requiresWallet: false,
+    validate: (input) => {
+      const netuidErr = requireNetuid(input.netuid);
+      if (netuidErr) return netuidErr;
+      const hasTao = input.tao !== undefined && input.tao !== null;
+      const hasAlpha = input.alpha !== undefined && input.alpha !== null;
+      if (!hasTao && !hasAlpha) return 'Either tao or alpha amount is required';
+      if (hasTao && hasAlpha) return 'Provide either tao or alpha, not both';
+      const val = Number(hasTao ? input.tao : input.alpha);
+      if (!Number.isFinite(val) || val <= 0) return 'Amount must be a positive number';
+      return null;
+    },
+    buildArgs: (input) => {
+      const params: Record<string, any> = { netuid: input.netuid };
+      if (input.tao !== undefined && input.tao !== null) params.tao = input.tao;
+      if (input.alpha !== undefined && input.alpha !== null) params.alpha = input.alpha;
+      return buildReadArgs(['view', 'swap-sim'], params);
+    },
+  },
+  {
+    modelId: 'agcli/view-nominations',
+    description: 'View who nominates/delegates to a hotkey',
+    requiresWallet: false,
+    validate: (input) => requireSs58(input.hotkey, 'hotkey'),
+    buildArgs: (input) => buildReadArgs(['view', 'nominations'], { hotkey: input.hotkey }),
+  },
+  {
+    modelId: 'agcli/identity-show',
+    description: 'Query on-chain identity for an address',
+    requiresWallet: false,
+    validate: (input) => requireSs58(input.address, 'address'),
+    buildArgs: (input) => buildReadArgs(['identity', 'show'], { address: input.address }),
+  },
 ];
 
 // ============================================================================
@@ -184,7 +283,7 @@ export const writeTools: ToolDefinition[] = [
     },
     buildArgs: (input) => buildWriteArgs(
       ['stake', 'add'],
-      { netuid: input.netuid, amount: input.amount },
+      { netuid: input.netuid, amount: input.amount }
     ),
   },
   {
@@ -202,7 +301,7 @@ export const writeTools: ToolDefinition[] = [
     },
     buildArgs: (input) => buildWriteArgs(
       ['stake', 'remove'],
-      { netuid: input.netuid, amount: input.amount },
+      { netuid: input.netuid, amount: input.amount }
     ),
   },
   {
@@ -224,7 +323,7 @@ export const writeTools: ToolDefinition[] = [
     },
     buildArgs: (input) => buildWriteArgs(
       ['weights', 'set'],
-      { netuid: input.netuid, weights: input.weights },
+      { netuid: input.netuid, weights: input.weights }
     ),
   },
   {
@@ -244,7 +343,7 @@ export const writeTools: ToolDefinition[] = [
     buildArgs: (input) => {
       const args = buildWriteArgs(
         ['weights', 'commit-reveal'],
-        { netuid: input.netuid, weights: input.weights },
+        { netuid: input.netuid, weights: input.weights }
       );
       args.push('--wait');
       return args;
@@ -261,7 +360,174 @@ export const writeTools: ToolDefinition[] = [
     },
     buildArgs: (input) => buildWriteArgs(
       ['subnet', 'register-neuron'],
-      { netuid: input.netuid },
+      { netuid: input.netuid }
+    ),
+  },
+  {
+    modelId: 'agcli/transfer',
+    description: 'Transfer TAO to another address',
+    requiresWallet: true,
+    validate: (input) => {
+      const walletErr = requireWallet(input);
+      if (walletErr) return walletErr;
+      const destErr = requireSs58(input.destination, 'destination');
+      if (destErr) return destErr;
+      const amount = Number(input.amount);
+      if (!Number.isFinite(amount) || amount <= 0) return 'amount must be a positive number';
+      return null;
+    },
+    buildArgs: (input) => buildWriteArgs(
+      ['transfer'],
+      { dest: input.destination, amount: input.amount }
+    ),
+  },
+  {
+    modelId: 'agcli/transfer-all',
+    description: 'Transfer entire TAO balance minus fees',
+    requiresWallet: true,
+    validate: (input) => {
+      const walletErr = requireWallet(input);
+      if (walletErr) return walletErr;
+      return requireSs58(input.destination, 'destination');
+    },
+    buildArgs: (input) => {
+      const args = buildWriteArgs(
+        ['transfer-all'],
+        { dest: input.destination }
+      );
+      args.push('--keep-alive');
+      return args;
+    },
+  },
+  {
+    modelId: 'agcli/serve-axon',
+    description: 'Set axon endpoint for a miner/validator so validators can reach it',
+    requiresWallet: true,
+    validate: (input) => {
+      const walletErr = requireWallet(input);
+      if (walletErr) return walletErr;
+      const netuidErr = requireNetuid(input.netuid);
+      if (netuidErr) return netuidErr;
+      if (typeof input.ip !== 'string' || !input.ip) return 'ip is required (e.g. "1.2.3.4")';
+      const port = Number(input.port);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) return 'port must be 1-65535';
+      return null;
+    },
+    buildArgs: (input) => buildWriteArgs(
+      ['serve', 'axon'],
+      { netuid: input.netuid, ip: input.ip, port: input.port, protocol: input.protocol }
+    ),
+  },
+  {
+    modelId: 'agcli/stake-recycle-alpha',
+    description: 'Convert subnet alpha tokens back to TAO',
+    requiresWallet: true,
+    validate: (input) => {
+      const walletErr = requireWallet(input);
+      if (walletErr) return walletErr;
+      const netuidErr = requireNetuid(input.netuid);
+      if (netuidErr) return netuidErr;
+      const amount = Number(input.amount);
+      if (!Number.isFinite(amount) || amount <= 0) return 'amount must be a positive number';
+      return null;
+    },
+    buildArgs: (input) => buildWriteArgs(
+      ['stake', 'recycle-alpha'],
+      { netuid: input.netuid, amount: input.amount }
+    ),
+  },
+  {
+    modelId: 'agcli/stake-unstake-all',
+    description: 'Unstake all alpha across all subnets',
+    requiresWallet: true,
+    validate: (input) => requireWallet(input),
+    buildArgs: (input) => buildWriteArgs(
+      ['stake', 'unstake-all-alpha'],
+      {}
+    ),
+  },
+  {
+    modelId: 'agcli/stake-burn-alpha',
+    description: 'Burn alpha tokens permanently on a subnet',
+    requiresWallet: true,
+    validate: (input) => {
+      const walletErr = requireWallet(input);
+      if (walletErr) return walletErr;
+      const netuidErr = requireNetuid(input.netuid);
+      if (netuidErr) return netuidErr;
+      const amount = Number(input.amount);
+      if (!Number.isFinite(amount) || amount <= 0) return 'amount must be a positive number';
+      return null;
+    },
+    buildArgs: (input) => buildWriteArgs(
+      ['stake', 'burn-alpha'],
+      { netuid: input.netuid, amount: input.amount }
+    ),
+  },
+  {
+    modelId: 'agcli/stake-move',
+    description: 'Move stake between subnets with optional limit price',
+    requiresWallet: true,
+    validate: (input) => {
+      const walletErr = requireWallet(input);
+      if (walletErr) return walletErr;
+      const fromErr = requireNetuid(input.from);
+      if (fromErr) return `from: ${fromErr}`;
+      const toErr = requireNetuid(input.to);
+      if (toErr) return `to: ${toErr}`;
+      const amount = Number(input.amount);
+      if (!Number.isFinite(amount) || amount <= 0) return 'amount must be a positive number';
+      if (input.price !== undefined) {
+        const price = Number(input.price);
+        if (!Number.isFinite(price) || price <= 0) return 'price must be a positive number';
+      }
+      return null;
+    },
+    buildArgs: (input) => {
+      const args = buildWriteArgs(
+        ['stake', 'swap-limit'],
+        { from: input.from, to: input.to, amount: input.amount, price: input.price }
+      );
+      if (input.price !== undefined) args.push('--partial');
+      return args;
+    },
+  },
+  {
+    modelId: 'agcli/weights-reveal',
+    description: 'Reveal previously committed weights on a subnet',
+    requiresWallet: true,
+    validate: (input) => {
+      const walletErr = requireWallet(input);
+      if (walletErr) return walletErr;
+      return requireNetuid(input.netuid);
+    },
+    buildArgs: (input) => buildWriteArgs(
+      ['weights', 'reveal'],
+      { netuid: input.netuid }
+    ),
+  },
+  {
+    modelId: 'agcli/subnet-create',
+    description: 'Create a new subnet (locks significant TAO — check cost first)',
+    requiresWallet: true,
+    validate: (input) => requireWallet(input),
+    buildArgs: (input) => buildWriteArgs(
+      ['subnet', 'create'],
+      {}
+    ),
+  },
+  {
+    modelId: 'agcli/subnet-dissolve',
+    description: 'Dissolve a subnet (owner only — returns locked TAO)',
+    requiresWallet: true,
+    validate: (input) => {
+      const walletErr = requireWallet(input);
+      if (walletErr) return walletErr;
+      return requireNetuid(input.netuid);
+    },
+    buildArgs: (input) => buildWriteArgs(
+      ['subnet', 'dissolve'],
+      { netuid: input.netuid }
     ),
   },
 ];
@@ -348,6 +614,9 @@ export async function executeTool(
             endpoint,
             password,
           });
+          if (result.exitCode !== 0) {
+            console.error(`[agcli] ${modelId} WRITE failed (exit ${result.exitCode}): stderr=${result.stderr.slice(0, 500)}`);
+          }
           const parsed = parseAgcliOutput(result);
           return JSON.stringify(parsed);
         });
@@ -360,6 +629,9 @@ export async function executeTool(
         timeout: timeoutRead,
         endpoint,
       });
+      if (result.exitCode !== 0) {
+        console.error(`[agcli] ${modelId} READ failed (exit ${result.exitCode}): stderr=${result.stderr.slice(0, 500)}`);
+      }
       const parsed = parseAgcliOutput(result);
       return JSON.stringify(parsed);
     }

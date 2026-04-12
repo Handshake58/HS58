@@ -140,19 +140,20 @@ Send JSON with the required fields:
 ${writeToolDocs}
 
 ### Write Input Format
-Write tools require Bittensor wallet mnemonics:
+Write tools require your Bittensor wallet keyfiles in the request:
 {
   "wallet": {
-    "coldkeyMnemonic": "<12-word coldkey mnemonic>",
-    "hotkeyMnemonic": "<12-word hotkey mnemonic>"
+    "coldkey": "<contents of your coldkey file>",
+    "hotkey": "<contents of your hotkey file>"
   },
+  "password": "<wallet password if encrypted>",
   "netuid": 1,
   "amount": 10
 }
 
 For weights: {"wallet": {...}, "netuid": 1, "weights": "0:100,1:200"}
 
-SECURITY: Mnemonics are imported into a temp wallet (encrypted coldkey via agcli wallet import), used once, and the entire directory is deleted immediately. Nothing is logged or stored. Max 3 concurrent writes.
+SECURITY: Wallet data is written to a temporary directory, used once, and immediately deleted. It is never logged or stored.
 
 ## Examples
 
@@ -170,7 +171,7 @@ Explain concept:
 
 Stake (with wallet):
   model: "agcli/stake-add"
-  messages: [{"role":"user","content":"{\\"wallet\\":{\\"coldkeyMnemonic\\":\\"word1 word2 ...\\",\\"hotkeyMnemonic\\":\\"word1 word2 ...\\"},\\"netuid\\":1,\\"amount\\":10}"}]
+  messages: [{"role":"user","content":"{\\"wallet\\":{\\"coldkey\\":\\"...\\",\\"hotkey\\":\\"...\\"},\\"password\\":\\"mypass\\",\\"netuid\\":1,\\"amount\\":10}"}]
 
 ## Response Format
 The assistant message contains a JSON string with the agcli output.
@@ -207,7 +208,12 @@ app.post('/v1/internal/execute', async (req, res) => {
   }
   try {
     const raw = await runTool(tool, input || {});
-    res.json({ tool, result: JSON.parse(raw), timestamp: new Date().toISOString() });
+    const parsed = JSON.parse(raw);
+    if (parsed.error) {
+      res.status(422).json({ tool, error: parsed.error, timestamp: new Date().toISOString() });
+      return;
+    }
+    res.json({ tool, result: parsed, timestamp: new Date().toISOString() });
   } catch (e: any) {
     res.status(500).json({ error: e.message?.slice(0, 500) || 'execution failed' });
   }
