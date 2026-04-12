@@ -270,7 +270,7 @@ export const readTools: ToolDefinition[] = [
 export const writeTools: ToolDefinition[] = [
   {
     modelId: 'agcli/stake-add',
-    description: 'Add stake to a subnet',
+    description: 'Add stake to a subnet. If hotkey is omitted, uses the wallet hotkey (must be registered on-chain).',
     requiresWallet: true,
     validate: (input) => {
       const walletErr = requireWallet(input);
@@ -279,16 +279,20 @@ export const writeTools: ToolDefinition[] = [
       if (netuidErr) return netuidErr;
       const amount = Number(input.amount);
       if (!Number.isFinite(amount) || amount <= 0) return 'amount must be a positive number';
+      if (input.hotkey !== undefined) {
+        const hkErr = requireSs58(input.hotkey, 'hotkey');
+        if (hkErr) return hkErr;
+      }
       return null;
     },
     buildArgs: (input) => buildWriteArgs(
       ['stake', 'add'],
-      { netuid: input.netuid, amount: input.amount }
+      { netuid: input.netuid, amount: input.amount, hotkey: input.hotkey }
     ),
   },
   {
     modelId: 'agcli/stake-remove',
-    description: 'Remove stake from a subnet',
+    description: 'Remove stake from a subnet. If hotkey is omitted, uses the wallet hotkey.',
     requiresWallet: true,
     validate: (input) => {
       const walletErr = requireWallet(input);
@@ -297,11 +301,15 @@ export const writeTools: ToolDefinition[] = [
       if (netuidErr) return netuidErr;
       const amount = Number(input.amount);
       if (!Number.isFinite(amount) || amount <= 0) return 'amount must be a positive number';
+      if (input.hotkey !== undefined) {
+        const hkErr = requireSs58(input.hotkey, 'hotkey');
+        if (hkErr) return hkErr;
+      }
       return null;
     },
     buildArgs: (input) => buildWriteArgs(
       ['stake', 'remove'],
-      { netuid: input.netuid, amount: input.amount }
+      { netuid: input.netuid, amount: input.amount, hotkey: input.hotkey }
     ),
   },
   {
@@ -429,11 +437,15 @@ export const writeTools: ToolDefinition[] = [
       if (netuidErr) return netuidErr;
       const amount = Number(input.amount);
       if (!Number.isFinite(amount) || amount <= 0) return 'amount must be a positive number';
+      if (input.hotkey !== undefined) {
+        const hkErr = requireSs58(input.hotkey, 'hotkey');
+        if (hkErr) return hkErr;
+      }
       return null;
     },
     buildArgs: (input) => buildWriteArgs(
       ['stake', 'recycle-alpha'],
-      { netuid: input.netuid, amount: input.amount }
+      { netuid: input.netuid, amount: input.amount, hotkey: input.hotkey }
     ),
   },
   {
@@ -443,7 +455,7 @@ export const writeTools: ToolDefinition[] = [
     validate: (input) => requireWallet(input),
     buildArgs: (input) => buildWriteArgs(
       ['stake', 'unstake-all-alpha'],
-      {}
+      { hotkey: input.hotkey }
     ),
   },
   {
@@ -457,11 +469,15 @@ export const writeTools: ToolDefinition[] = [
       if (netuidErr) return netuidErr;
       const amount = Number(input.amount);
       if (!Number.isFinite(amount) || amount <= 0) return 'amount must be a positive number';
+      if (input.hotkey !== undefined) {
+        const hkErr = requireSs58(input.hotkey, 'hotkey');
+        if (hkErr) return hkErr;
+      }
       return null;
     },
     buildArgs: (input) => buildWriteArgs(
       ['stake', 'burn-alpha'],
-      { netuid: input.netuid, amount: input.amount }
+      { netuid: input.netuid, amount: input.amount, hotkey: input.hotkey }
     ),
   },
   {
@@ -481,12 +497,16 @@ export const writeTools: ToolDefinition[] = [
         const price = Number(input.price);
         if (!Number.isFinite(price) || price <= 0) return 'price must be a positive number';
       }
+      if (input.hotkey !== undefined) {
+        const hkErr = requireSs58(input.hotkey, 'hotkey');
+        if (hkErr) return hkErr;
+      }
       return null;
     },
     buildArgs: (input) => {
       const args = buildWriteArgs(
         ['stake', 'swap-limit'],
-        { from: input.from, to: input.to, amount: input.amount, price: input.price }
+        { from: input.from, to: input.to, amount: input.amount, price: input.price, hotkey: input.hotkey }
       );
       if (input.price !== undefined) args.push('--partial');
       return args;
