@@ -12,6 +12,8 @@ RUN awk '/pub async fn get_coldkey_swap_scheduled/ { \
     skip { for(i=1;i<=length($0);i++){c=substr($0,i,1);if(c=="{")depth++;if(c=="}")depth--} \
       if(depth<=0)skip=0; next } \
     {print}' src/chain/queries.rs > /tmp/patched.rs && mv /tmp/patched.rs src/chain/queries.rs
+# Patch: increase finalization timeout from 30s to 120s (Bittensor nodes can be slow)
+RUN sed -i 's/Duration::from_secs(30)/Duration::from_secs(120)/g' src/chain/mod.rs
 RUN cargo build --release
 # Binary at /build/target/release/agcli
 
