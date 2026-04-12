@@ -607,6 +607,7 @@ export async function executeTool(
 
         return await withTempWallet(walletData, agcliPath, async (walletDir, walletName, password) => {
           const args = tool.buildArgs(input);
+          console.log(`[agcli] ${modelId} WRITE executing: args=${JSON.stringify(args)}`);
           const result = await execAgcli(agcliPath, args, {
             walletDir,
             walletName,
@@ -614,10 +615,11 @@ export async function executeTool(
             endpoint,
             password,
           });
-          if (result.exitCode !== 0) {
-            console.error(`[agcli] ${modelId} WRITE failed (exit ${result.exitCode}): stderr=${result.stderr.slice(0, 500)}`);
-          }
+          console.log(`[agcli] ${modelId} WRITE result: exit=${result.exitCode} stdout=${result.stdout.slice(0, 1000)} stderr=${result.stderr.slice(0, 500)}`);
           const parsed = parseAgcliOutput(result);
+          if (parsed && typeof parsed === 'object' && parsed.error) {
+            console.error(`[agcli] ${modelId} WRITE chain error: ${JSON.stringify(parsed.error).slice(0, 500)}`);
+          }
           return JSON.stringify(parsed);
         });
       } finally {
