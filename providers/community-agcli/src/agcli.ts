@@ -162,7 +162,8 @@ export function parseAgcliOutput(result: AgcliResult): any {
     let errorMessage = result.stderr.trim() || `agcli exited with code ${result.exitCode}`;
     try {
       const parsed = JSON.parse(result.stderr);
-      errorMessage = parsed.error || parsed.message || errorMessage;
+      errorMessage = parsed.message || parsed.hint || errorMessage;
+      if (parsed.code) errorMessage = `[code ${parsed.code}] ${errorMessage}`;
     } catch {
       // stderr was not JSON
     }
