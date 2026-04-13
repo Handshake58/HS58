@@ -482,7 +482,7 @@ export const writeTools: ToolDefinition[] = [
   },
   {
     modelId: 'agcli/stake-move',
-    description: 'Move stake between subnets with optional limit price',
+    description: 'Move stake between subnets. Without price: market swap. With price: limit order.',
     requiresWallet: true,
     validate: (input) => {
       const walletErr = requireWallet(input);
@@ -504,12 +504,18 @@ export const writeTools: ToolDefinition[] = [
       return null;
     },
     buildArgs: (input) => {
-      const args = buildWriteArgs(
-        ['stake', 'swap-limit'],
-        { from: input.from, to: input.to, amount: input.amount, price: input.price, hotkey: input.hotkey }
+      if (input.price !== undefined) {
+        const args = buildWriteArgs(
+          ['stake', 'swap-limit'],
+          { from: input.from, to: input.to, amount: input.amount, price: input.price, hotkey: input.hotkey }
+        );
+        args.push('--partial');
+        return args;
+      }
+      return buildWriteArgs(
+        ['stake', 'move'],
+        { from: input.from, to: input.to, amount: input.amount, hotkey: input.hotkey }
       );
-      if (input.price !== undefined) args.push('--partial');
-      return args;
     },
   },
   {
@@ -531,8 +537,8 @@ export const writeTools: ToolDefinition[] = [
     description: 'Create a new subnet (locks significant TAO — check cost first)',
     requiresWallet: true,
     validate: (input) => requireWallet(input),
-    buildArgs: (input) => buildWriteArgs(
-      ['subnet', 'create'],
+    buildArgs: () => buildWriteArgs(
+      ['subnet', 'register'],
       {}
     ),
   },
