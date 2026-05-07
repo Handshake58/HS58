@@ -1,0 +1,56 @@
+{
+  "slug": "community-axelot",
+  "name": "Community-Axelot",
+  "category": "Bittensor dTAO Trading Intelligence",
+  "description": "Non-custodial Bittensor dTAO market analysis, risk preflights, trade intents, local signer bootstrap, and transaction monitoring via DRAIN micropayments.",
+  "providerUrl": "https://your-community-axelot-provider.example.com",
+  "providerWalletAddress": "0x0000000000000000000000000000000000000000",
+  "chainId": 137,
+  "currency": "USDC",
+  "custodyModel": "non-custodial",
+  "walletSafety": {
+    "taoWalletMaterialAcceptedByProvider": false,
+    "providerSignsBittensorTransactions": false,
+    "localSignerRequiredForExecution": true,
+    "signedExtrinsicRelay": "local-signer-only"
+  },
+  "models": [
+    "axelot/market-snapshot",
+    "axelot/subnet-analyze",
+    "axelot/friction-quote",
+    "axelot/portfolio-analyze",
+    "axelot/opportunity-scan",
+    "axelot/risk-preflight",
+    "axelot/rebalance-loop",
+    "axelot/trade-plan",
+    "axelot/signer-bootstrap",
+    "axelot/monitor-trade"
+  ],
+  "discoveryEndpoints": {
+    "health": "/health",
+    "pricing": "/v1/pricing",
+    "models": "/v1/models",
+    "schemas": "/v1/schemas",
+    "docs": "/v1/docs"
+  },
+  "tags": [
+    "bittensor",
+    "tao",
+    "dtao",
+    "subtensor",
+    "trading",
+    "risk",
+    "non-custodial",
+    "mcp",
+    "drain"
+  ],
+  "agentInstructions": "Call axelot/signer-bootstrap first for execution setup. Use axelot/trade-plan for semantic intents. Send intents only to the local axelot-tao-signer MCP for dry-run, signing, and submit. Never send TAO mnemonics, keyfiles, private keys, passwords, or signed extrinsic hex to the provider.",
+  "testPlan": [
+    "GET /health returns ok",
+    "GET /v1/pricing lists all models and flat USDC pricing",
+    "GET /v1/models includes input/output schemas",
+    "GET /v1/schemas includes axelot.trade-intent.v1",
+    "Provider build passes npm run build",
+    "Signer MCP build passes npm run build"
+  ]
+}

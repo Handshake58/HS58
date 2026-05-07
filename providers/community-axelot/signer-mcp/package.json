@@ -1,0 +1,33 @@
+{
+  "name": "@axelot/tao-signer-mcp",
+  "version": "0.1.0",
+  "description": "Local non-custodial TAO signer MCP for Community-Axelot trade intents",
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "axelot-tao-signer-mcp": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/server.ts",
+    "start": "node dist/server.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "@polkadot/api": "^16",
+    "@polkadot/keyring": "^14",
+    "@polkadot/util": "^14",
+    "@polkadot/util-crypto": "^14",
+    "dotenv": "^16.0.0",
+    "zod": "^3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
