@@ -22,9 +22,10 @@ optionally submits locally.
 ## Setup
 
 ```bash
-cd providers/community-axelot/signer-mcp
+git clone https://github.com/Handshake58/HS58.git
+cd HS58/providers/community-axelot/signer-mcp
 npm install
-cp env.example .env
+npm run generate-wallet
 npm run build
 ```
 
@@ -48,12 +49,12 @@ npm run generate-wallet
   "mcpServers": {
     "axelot-tao-signer": {
       "command": "node",
-      "args": ["C:/Coding/HS58/providers/community-axelot/signer-mcp/dist/server.js"],
+      "args": ["/absolute/path/to/HS58/providers/community-axelot/signer-mcp/dist/server.js"],
       "env": {
-        "TAO_COLDKEY_MNEMONIC": "use-a-dedicated-low-value-trading-wallet",
-        "SUBTENSOR_ENDPOINT": "wss://test.finney.opentensor.ai:443",
-        "BITTENSOR_CHAIN": "bittensor-testnet",
-        "MAX_TAO_PER_TRADE": "0.25",
+        "TAO_COLDKEY_MNEMONIC": "generated-or-existing-dedicated-low-value-tao-wallet",
+        "SUBTENSOR_ENDPOINT": "wss://entrypoint-finney.opentensor.ai:443",
+        "BITTENSOR_CHAIN": "bittensor-finney",
+        "MAX_TAO_PER_TRADE": "0.01",
         "MAX_SLIPPAGE_PCT": "1.5",
         "REQUIRE_CONFIRM": "true",
         "ALLOW_RECYCLE_ALPHA": "false"

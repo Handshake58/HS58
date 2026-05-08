@@ -109,41 +109,118 @@ app.get('/v1/docs', (_req, res) => {
 
 Bittensor dTAO trading intelligence via DRAIN payments. This is NOT a chat/LLM provider and does NOT custody or sign TAO wallets.
 
-## How to use via DRAIN
-1. Open a payment channel to this provider with drain_open_channel.
-2. Call drain_chat with one of the model IDs below.
-3. Put exactly one user message whose content is valid JSON.
-4. Discover exact JSON schemas at /v1/schemas or in /v1/models.
+## Zero-context agent quick start
+1. Install DRAIN MCP: \`npm install -g drain-mcp\`.
+2. Configure \`DRAIN_PRIVATE_KEY\` in the agent MCP config. The wallet needs USDC + POL on Polygon.
+3. Open a channel:
+\`\`\`
+drain_open_channel({
+  "provider": "${drainService.getProviderAddress()}",
+  "amount": "0.50",
+  "duration": "1h"
+})
+\`\`\`
+4. Call this provider with \`drain_chat\`. Put exactly one user message whose \`content\` is a JSON string.
+5. Close with \`drain_cooperative_close(channelId)\` when finished.
 
 ## Operations
 | Model ID | Description | Price |
 |---|---|---|
 ${rows}
 
-## Non-custodial execution
-Trading plans return semantic intents for a separate local MCP signer:
-\`axelot-tao-signer-mcp\`. The provider never receives TAO mnemonics, keyfiles,
-private keys, or signed wallet material. Default execution mode is local submit:
-the signer signs/submits to Subtensor, then this provider can monitor the tx hash.
+## Read-only calls
+Example market snapshot:
+\`\`\`json
+{
+  "channelId": "0x...",
+  "model": "axelot/market-snapshot",
+  "messages": [
+    { "role": "user", "content": "{\"limit\":20,\"minReserveTao\":50}" }
+  ]
+}
+\`\`\`
 
-## Common input examples
-Market snapshot:
-{"limit": 20, "minReserveTao": 50}
+Example friction quote:
+\`\`\`json
+{
+  "model": "axelot/friction-quote",
+  "messages": [
+    { "role": "user", "content": "{\"netuid\":64,\"amountTao\":0.25,\"action\":\"stake\"}" }
+  ]
+}
+\`\`\`
 
-Subnet analysis:
-{"netuids": [1, 8, 64]}
+## Non-custodial trading execution
+Trading plans return semantic \`axelot.trade-intent.v1\` intents for a separate local MCP signer. The provider never receives TAO mnemonics, keyfiles, private keys, passwords, or signed extrinsic hex.
 
-Friction quote:
-{"netuid": 1, "amountTao": 0.25, "action": "stake"}
+Install the local signer from the public HS58 repo:
+\`\`\`bash
+git clone https://github.com/Handshake58/HS58.git
+cd HS58/providers/community-axelot/signer-mcp
+npm install
+npm run generate-wallet
+npm run build
+node dist/server.js
+\`\`\`
 
-Portfolio analysis:
-{"coldkey": "5..."}
+Cursor/agent MCP config example:
+\`\`\`json
+{
+  "mcpServers": {
+    "axelot-tao-signer": {
+      "command": "node",
+      "args": ["/absolute/path/to/HS58/providers/community-axelot/signer-mcp/dist/server.js"],
+      "env": {
+        "TAO_COLDKEY_MNEMONIC": "your generated or existing low-value TAO wallet mnemonic",
+        "SUBTENSOR_ENDPOINT": "wss://entrypoint-finney.opentensor.ai:443",
+        "BITTENSOR_CHAIN": "bittensor-finney",
+        "MAX_TAO_PER_TRADE": "0.01",
+        "MAX_SLIPPAGE_PCT": "1.5",
+        "REQUIRE_CONFIRM": "true",
+        "ALLOW_RECYCLE_ALPHA": "false"
+      }
+    }
+  }
+}
+\`\`\`
 
-Trade plan:
-{"action": "stake", "netuid": 1, "amountTao": 0.25, "coldkey": "5...", "maxSlippagePct": 1.5, "riskPolicyHash": "sha256:..."}
+Local signer tools:
+- \`tao_generate_wallet\`: create a new sr25519 TAO coldkey if the user has no wallet.
+- \`tao_wallet_status\`: show local coldkey, endpoint, balance, nonce and policy hash.
+- \`tao_portfolio_snapshot\`: read local stake positions.
+- \`tao_policy_get\`: inspect local execution limits.
+- \`tao_verify_intent\`: validate provider intent against local policy.
+- \`tao_dry_run_intent\`: reconstruct the exact Subtensor call without signing.
+- \`tao_execute_intent\`: verify, sign and submit locally after user approval.
+- \`tao_sign_trade_intent\` + \`tao_submit_signed_extrinsic\`: advanced local two-step flow.
 
-Monitor trade:
-{"txHash": "0x...", "depth": 80}
+Full execution flow:
+1. Call \`axelot/trade-plan\` through DRAIN.
+2. Send the returned \`intent\` to local \`tao_dry_run_intent\`.
+3. Show the reconstructed call, amount units, limit price and policy verdict to the user.
+4. Only after approval, call local \`tao_execute_intent({ intent, confirm: true })\`.
+5. Send the returned \`txHash\` to \`axelot/monitor-trade\`.
+
+## Trade-plan request example
+\`\`\`json
+{
+  "model": "axelot/trade-plan",
+  "messages": [
+    {
+      "role": "user",
+      "content": "{\"action\":\"stake\",\"netuid\":64,\"amountTao\":0.005,\"coldkey\":\"5...\",\"maxSlippagePct\":1.5,\"ttlSeconds\":300}"
+    }
+  ]
+}
+\`\`\`
+
+The response includes \`requiresLocalSigner:true\`, local signer metadata and an \`intent\` object. Do not sign provider raw calls; the signer rebuilds allowlisted Subtensor calls from the semantic intent.
+
+## Other input examples
+- Subnet analysis: \`{"netuids":[1,8,64]}\`
+- Portfolio analysis: \`{"coldkey":"5..."}\`
+- Risk preflight: \`{"action":"stake","netuid":64,"amountTao":0.01,"maxTaoPerTrade":0.01}\`
+- Monitor trade: \`{"txHash":"0x...","depth":80}\`
 
 ## Response format
 The assistant message content is a JSON string. Parse it as JSON. Trade planning
@@ -155,6 +232,7 @@ responses include \`requiresLocalSigner:true\`, signer setup metadata, and an
 - Local signer must reconstruct allowlisted Subtensor calls from semantic intent.
 - Limit-price values are advisory; local signer recomputes RAO/Alpha limits.
 - \`recycle_alpha\` requires explicit local policy plus manual confirmation.
+- Signed extrinsic hex stays local; do not send it to the remote provider.
 
 Pricing is flat per request in USDC; see /v1/pricing for exact current rates.
 Rate limits: reads ${config.readRateLimitPerMinute}/min, planning ${config.planRateLimitPerMinute}/min per channel.

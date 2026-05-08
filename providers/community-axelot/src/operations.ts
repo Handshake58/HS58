@@ -212,16 +212,27 @@ function signerBootstrap(ctx: OperationContext) {
     operation: 'signer-bootstrap',
     requiresLocalSigner: true,
     mcp: signerMetadata(),
+    install: {
+      repository: 'https://github.com/Handshake58/HS58.git',
+      packagePath: 'providers/community-axelot/signer-mcp',
+      commands: [
+        'git clone https://github.com/Handshake58/HS58.git',
+        'cd HS58/providers/community-axelot/signer-mcp',
+        'npm install',
+        'npm run generate-wallet',
+        'npm run build',
+      ],
+    },
     cursorMcpConfigExample: {
       mcpServers: {
         'axelot-tao-signer': {
           command: 'node',
-          args: ['C:/Coding/HS58/providers/community-axelot/signer-mcp/dist/server.js'],
+          args: ['/absolute/path/to/HS58/providers/community-axelot/signer-mcp/dist/server.js'],
           env: {
-            TAO_COLDKEY_MNEMONIC: 'use-a-dedicated-low-value-trading-wallet',
+            TAO_COLDKEY_MNEMONIC: 'generated-or-existing-dedicated-low-value-tao-wallet',
             SUBTENSOR_ENDPOINT: ctx.config.subtensorEndpoint,
             BITTENSOR_CHAIN: ctx.config.bittensorChain,
-            MAX_TAO_PER_TRADE: '0.25',
+            MAX_TAO_PER_TRADE: '0.01',
             MAX_SLIPPAGE_PCT: '1.5',
             REQUIRE_CONFIRM: 'true',
             ALLOW_RECYCLE_ALPHA: 'false',
@@ -233,6 +244,7 @@ function signerBootstrap(ctx: OperationContext) {
       'Never send TAO mnemonics, keyfiles, or private keys to the Axelot provider.',
       'The signer reconstructs allowlisted calls locally from semantic trade intents.',
       'Default execution mode is local submit; provider monitors tx hashes only.',
+      'If the user has no TAO wallet, run tao_generate_wallet or npm run generate-wallet in the signer package.',
     ],
   };
 }
