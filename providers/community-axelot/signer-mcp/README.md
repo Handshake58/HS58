@@ -10,6 +10,7 @@ optionally submits locally.
 ## Tools
 
 - `tao_wallet_status`: show local coldkey, endpoint, free balance, nonce, and policy hash.
+- `tao_generate_wallet`: create a new sr25519 TAO coldkey mnemonic and address.
 - `tao_portfolio_snapshot`: read local coldkey stake positions from chain state.
 - `tao_policy_get`: return the local policy that gates execution.
 - `tao_verify_intent`: validate a provider intent without signing.
@@ -29,6 +30,16 @@ npm run build
 
 Use a dedicated low-value wallet. Start on Bittensor testnet or localnet before
 using Finney.
+
+If the user has no TAO wallet yet, call `tao_generate_wallet`, put the returned
+`TAO_COLDKEY_MNEMONIC` into the local signer env, restart the signer, then run
+`tao_wallet_status`.
+
+For CLI setup, generate a new `.env` with:
+
+```bash
+npm run generate-wallet
+```
 
 ## Cursor MCP Config
 

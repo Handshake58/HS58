@@ -362,7 +362,7 @@ function signerMetadata() {
     localPath: 'providers/community-axelot/signer-mcp',
     installCommand: 'cd providers/community-axelot/signer-mcp && npm install && npm run build',
     defaultSubmit: 'local-only',
-    requiredTools: ['tao_wallet_status', 'tao_portfolio_snapshot', 'tao_verify_intent', 'tao_dry_run_intent', 'tao_sign_trade_intent', 'tao_submit_signed_extrinsic', 'tao_execute_intent'],
+    requiredTools: ['tao_generate_wallet', 'tao_wallet_status', 'tao_portfolio_snapshot', 'tao_verify_intent', 'tao_dry_run_intent', 'tao_sign_trade_intent', 'tao_submit_signed_extrinsic', 'tao_execute_intent'],
   };
 }
 

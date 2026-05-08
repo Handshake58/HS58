@@ -6,7 +6,7 @@ import type { SignerOptions, SubmittableExtrinsic } from '@polkadot/api/types';
 import { Keyring } from '@polkadot/keyring';
 import type { KeyringPair } from '@polkadot/keyring/types';
 import { stringCamelCase } from '@polkadot/util';
-import { cryptoWaitReady } from '@polkadot/util-crypto';
+import { cryptoWaitReady, mnemonicGenerate } from '@polkadot/util-crypto';
 import { createHash } from 'node:crypto';
 import { config as loadDotenv } from 'dotenv';
 import { z } from 'zod';
@@ -448,6 +448,26 @@ server.tool('tao_wallet_status', 'Show local TAO signer wallet, endpoint, balanc
       freeRao: free.toString(),
       nonce: nonce.toString(),
       policyHash: policyHash(),
+    });
+  } catch (error) {
+    return err(error instanceof Error ? error.message : String(error));
+  }
+});
+
+server.tool('tao_generate_wallet', 'Generate a new local sr25519 TAO coldkey mnemonic and address for users who do not have a wallet yet.', {}, async () => {
+  try {
+    await cryptoWaitReady();
+    const mnemonic = mnemonicGenerate(12);
+    const keyring = new Keyring({ type: 'sr25519', ss58Format: 42 });
+    const pair = keyring.addFromMnemonic(mnemonic);
+    return ok({
+      address: pair.address,
+      mnemonic,
+      env: {
+        TAO_COLDKEY_MNEMONIC: mnemonic,
+        SUBTENSOR_ENDPOINT: process.env.SUBTENSOR_ENDPOINT ?? DEFAULT_ENDPOINT,
+        BITTENSOR_CHAIN: process.env.BITTENSOR_CHAIN ?? 'bittensor-testnet',
+      },
     });
   } catch (error) {
     return err(error instanceof Error ? error.message : String(error));

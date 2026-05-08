@@ -10,6 +10,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/server.ts",
+    "generate-wallet": "tsx src/generate-wallet.ts",
     "start": "node dist/server.js"
   },
   "license": "MIT",
