@@ -3,6 +3,9 @@
 `community-axelot` is a Handshake58/DRAIN provider for Bittensor dTAO market
 intelligence and non-custodial trading intents.
 
+DRAIN is the Polygon USDC payment channel used to pay this provider. It is not
+used for TAO signing or Bittensor execution.
+
 ## Endpoints
 
 - `GET /health`: provider and Subtensor connection health.
@@ -76,6 +79,10 @@ The provider may use this object for recommendations, scoring, and intent
 context. The local signer must still enforce hard limits such as max TAO per
 trade, max slippage, and confirmation requirements.
 
+Agents should check or normalize `targetAllocations[].weightPct` so the strategy
+allocation sums to 100. The schema defines shape; the strategy source or agent
+owns economic consistency.
+
 ## Autonomous Agents
 
 Autonomous agents such as Clawdbot own scheduling, state, retries, Taostats
@@ -93,17 +100,34 @@ the signer must enforce local policy limits such as max TAO per trade, max TAO
 per day, max trades per day, cooldown, max slippage, allowed actions, and
 allowed netuids.
 
+Exact autonomy enum example:
+
+```json
+{
+  "autonomy": {
+    "mode": "guarded_autopilot",
+    "requireDryRun": true
+  }
+}
+```
+
 ## Non-Custodial Execution
 
 The local `signer-mcp/` package is the only component allowed to hold TAO wallet
 material. Its expected agent flow is:
 
-1. Call provider `axelot/trade-plan`.
-2. Send the returned `intent` to local `tao_dry_run_intent`.
-3. Call local `tao_trade_state` to inspect active intents and remaining budget.
-4. Inspect local policy verdict and reconstructed Subtensor call.
-5. Call `tao_execute_intent` with `confirm:true` after user approval, unless guarded autopilot is locally enabled.
-6. Send the returned `txHash` to provider `axelot/monitor-trade`.
+1. Call provider `axelot/signer-bootstrap` before entering Trade mode.
+2. Call provider `axelot/risk-preflight`.
+3. Call provider `axelot/trade-plan`.
+4. Send the returned `intent` to local `tao_dry_run_intent`.
+5. Call local `tao_trade_state` to inspect active intents and remaining budget.
+6. Inspect local policy verdict and reconstructed Subtensor call.
+7. Call `tao_execute_intent` with `confirm:true` after user approval, unless guarded autopilot is locally enabled.
+8. Send the returned `txHash` to provider `axelot/monitor-trade`.
+
+`coldkey` is optional for `risk-preflight` and `trade-plan` because the local
+signer knows its own coldkey. Include it when available for better portfolio
+context and clearer intent checks.
 
 For split signing/submission, use local `tao_sign_trade_intent` followed by
 local `tao_submit_signed_extrinsic`. Signed extrinsic hex must stay local and

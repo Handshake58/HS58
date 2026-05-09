@@ -22,6 +22,16 @@ optionally submits locally.
 
 ## Setup
 
+Recommended npm install:
+
+```bash
+npm install -g axelot-tao-signer-mcp
+```
+
+Then add it to your Cursor/agent MCP config using the global binary shown below.
+
+Fallback from the HS58 repo:
+
 ```bash
 git clone https://github.com/Handshake58/HS58.git
 cd HS58/providers/community-axelot/signer-mcp
@@ -49,8 +59,7 @@ npm run generate-wallet
 {
   "mcpServers": {
     "axelot-tao-signer": {
-      "command": "node",
-      "args": ["/absolute/path/to/HS58/providers/community-axelot/signer-mcp/dist/server.js"],
+      "command": "axelot-tao-signer-mcp",
       "env": {
         "TAO_COLDKEY_MNEMONIC": "generated-or-existing-dedicated-low-value-tao-wallet",
         "SUBTENSOR_ENDPOINT": "wss://entrypoint-finney.opentensor.ai:443",
@@ -66,6 +75,9 @@ npm run generate-wallet
   }
 }
 ```
+
+If you use the repo fallback instead of npm, set `command` to `node` and `args`
+to the absolute `dist/server.js` path.
 
 ## Execution Flow
 
@@ -102,6 +114,26 @@ Autonomous signing is still bounded by local policy:
 The signer keeps a small bounded state file at `TRADE_STATE_PATH`. It stores
 daily budget usage, active submitted intents, and recent decisions so an
 autonomous agent can explain what it is in and why. It is not an append-only log.
+
+Strategy autonomy example for agents:
+
+```json
+{
+  "autonomy": {
+    "mode": "guarded_autopilot",
+    "maxTaoPerTrade": 0.01,
+    "maxTaoPerDay": 0.05,
+    "maxTradesPerDay": 5,
+    "minSecondsBetweenTrades": 300,
+    "allowedActions": ["stake", "unstake", "move", "swap"],
+    "allowedNetuids": [64],
+    "requireDryRun": true
+  }
+}
+```
+
+This strategy field is advisory context for agents. The actual opt-in is local:
+set `REQUIRE_CONFIRM=false` and keep strict signer limits.
 
 ## Safety Defaults
 

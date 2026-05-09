@@ -56,7 +56,25 @@ Use a persistent volume for `STORAGE_PATH`; vouchers are required for DRAIN clai
 
 ## Local TAO Signer
 
-The companion MCP lives in `signer-mcp/`:
+Recommended install:
+
+```bash
+npm install -g axelot-tao-signer-mcp
+```
+
+Cursor/agent MCP config can use:
+
+```json
+{
+  "mcpServers": {
+    "axelot-tao-signer": {
+      "command": "axelot-tao-signer-mcp"
+    }
+  }
+}
+```
+
+The companion MCP also lives in `signer-mcp/` for local development:
 
 ```bash
 cd signer-mcp
@@ -66,9 +84,8 @@ npm run build
 node dist/server.js
 ```
 
-For Cursor MCP config, point the command to `signer-mcp/dist/server.js`. The
-normal-user tools are `tao_generate_wallet`, `tao_dry_run_intent`, and
-`tao_execute_intent`. Advanced local-only flows can use
+The normal-user tools are `tao_generate_wallet`, `tao_dry_run_intent`,
+`tao_trade_state`, and `tao_execute_intent`. Advanced local-only flows can use
 `tao_sign_trade_intent` plus `tao_submit_signed_extrinsic`.
 
 ## Marketplace Registration

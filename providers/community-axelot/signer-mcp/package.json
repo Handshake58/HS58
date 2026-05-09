@@ -1,5 +1,5 @@
 {
-  "name": "@axelot/tao-signer-mcp",
+  "name": "axelot-tao-signer-mcp",
   "version": "0.1.0",
   "description": "Local non-custodial TAO signer MCP for Community-Axelot trade intents",
   "type": "module",
@@ -11,8 +11,27 @@
     "build": "tsc",
     "dev": "tsx src/server.ts",
     "generate-wallet": "tsx src/generate-wallet.ts",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "prepublishOnly": "npm run build"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "env.example"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Handshake58/HS58.git",
+    "directory": "providers/community-axelot/signer-mcp"
+  },
+  "keywords": [
+    "mcp",
+    "bittensor",
+    "tao",
+    "signer",
+    "handshake58",
+    "axelot"
+  ],
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.4",

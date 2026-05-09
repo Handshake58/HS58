@@ -226,13 +226,31 @@ function signerBootstrap(ctx: OperationContext) {
     },
     autonomyModes: {
       manualConfirm: 'Default. REQUIRE_CONFIRM=true, every execution needs explicit user confirmation.',
-      guardedAutopilot: 'Opt-in local mode. REQUIRE_CONFIRM=false, agent may execute only inside signer policy and bounded trade-state limits.',
+      guardedAutopilot: 'Opt-in local mode. Set strategy.autonomy.mode="guarded_autopilot" and local REQUIRE_CONFIRM=false. Agent may execute only inside signer policy and bounded trade-state limits.',
       observeOnly: 'Agent can use provider analysis and tao_trade_state but should not call execution tools.',
     },
+    zeroContextFlow: [
+      'Start in Learn mode with market-snapshot and opportunity-scan.',
+      'Use Monitor mode only after the user provides a public coldkey.',
+      'Before Trade mode, call axelot/signer-bootstrap and verify the local signer is available.',
+      'If the local signer is not available, stop at planning/simulation and do not execute.',
+      'Use tao_trade_state before execution so the agent can explain current active intents and remaining daily budget.',
+    ],
+    coldkeyPolicy: {
+      providerInput: 'coldkey is optional for risk-preflight and trade-plan because the local signer knows its own coldkey.',
+      recommended: 'include coldkey when available for better portfolio context and clearer intent checks.',
+      forbidden: 'never send mnemonics, keyfiles, private keys, passwords, or signed extrinsic hex to the provider.',
+    },
     install: {
+      npmPackage: 'axelot-tao-signer-mcp',
+      npmGlobalCommand: 'npm install -g axelot-tao-signer-mcp',
+      mcpCommand: 'axelot-tao-signer-mcp',
       repository: 'https://github.com/Handshake58/HS58.git',
       packagePath: 'providers/community-axelot/signer-mcp',
       commands: [
+        'npm install -g axelot-tao-signer-mcp',
+      ],
+      fallbackCommands: [
         'git clone https://github.com/Handshake58/HS58.git',
         'cd HS58/providers/community-axelot/signer-mcp',
         'npm install',
@@ -243,8 +261,7 @@ function signerBootstrap(ctx: OperationContext) {
     cursorMcpConfigExample: {
       mcpServers: {
         'axelot-tao-signer': {
-          command: 'node',
-          args: ['/absolute/path/to/HS58/providers/community-axelot/signer-mcp/dist/server.js'],
+          command: 'axelot-tao-signer-mcp',
           env: {
             TAO_COLDKEY_MNEMONIC: 'generated-or-existing-dedicated-low-value-tao-wallet',
             SUBTENSOR_ENDPOINT: ctx.config.subtensorEndpoint,
@@ -261,6 +278,12 @@ function signerBootstrap(ctx: OperationContext) {
         },
       },
     },
+    dryRunOnlyFlow: [
+      'Call tao_wallet_status to confirm the local signer wallet and policy hash.',
+      'Call tao_dry_run_intent with the provider intent.',
+      'Call tao_trade_state to inspect active intents and remaining budget.',
+      'Do not call tao_execute_intent unless user confirmation or local guarded autopilot policy allows execution.',
+    ],
     safety: [
       'Never send TAO mnemonics, keyfiles, or private keys to the Axelot provider.',
       'The signer reconstructs allowlisted calls locally from semantic trade intents.',
@@ -392,9 +415,9 @@ function concentration(positions: StakePosition[]) {
 function signerMetadata() {
   return {
     name: 'axelot-tao-signer',
-    package: '@axelot/tao-signer-mcp',
+    package: 'axelot-tao-signer-mcp',
     localPath: 'providers/community-axelot/signer-mcp',
-    installCommand: 'cd providers/community-axelot/signer-mcp && npm install && npm run build',
+    installCommand: 'npm install -g axelot-tao-signer-mcp',
     defaultSubmit: 'local-only',
     requiredTools: ['tao_generate_wallet', 'tao_wallet_status', 'tao_portfolio_snapshot', 'tao_policy_get', 'tao_trade_state', 'tao_verify_intent', 'tao_dry_run_intent', 'tao_sign_trade_intent', 'tao_submit_signed_extrinsic', 'tao_execute_intent'],
   };

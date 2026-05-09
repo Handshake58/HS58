@@ -18,6 +18,7 @@ wallet stays local and is handled only by `axelot-tao-signer`.
 - Never execute a trade without first showing the result of `tao_dry_run_intent`.
 - Never call `tao_execute_intent` unless the user explicitly confirms the displayed dry-run.
 - Exception: if the user explicitly configured local `REQUIRE_CONFIRM=false`, you may execute without per-trade confirmation only inside signer policy.
+- Before Trade mode execution, call `axelot/signer-bootstrap`. If no local signer is available, stop at planning/simulation.
 - Treat provider trade plans as recommendations. Treat local signer policy as enforcement.
 
 ## Modes
@@ -83,6 +84,14 @@ Do not maintain an unbounded trade log in context. Use your own memory for
 strategy and scheduling, and use signer `tao_trade_state` for the compact current
 execution state.
 
+First 5 calls for a new autonomous agent:
+
+1. `GET /health`
+2. `GET /v1/models`
+3. `GET /v1/schemas`
+4. Learn mode call: `axelot/market-snapshot`
+5. Only when the user asks to trade: `axelot/signer-bootstrap`
+
 ## TrustedStake Strategy Adapter
 
 TrustedStake designs strategy methodology. Axelot interprets strategy data and
@@ -131,6 +140,25 @@ With target allocations:
 }
 ```
 
+Guarded autopilot example. Use the exact enum string only after local user opt-in:
+
+```json
+{
+  "autonomy": {
+    "mode": "guarded_autopilot",
+    "maxTaoPerTrade": 0.01,
+    "maxTaoPerDay": 0.05,
+    "maxTradesPerDay": 5,
+    "minSecondsBetweenTrades": 300,
+    "allowedActions": ["stake", "unstake", "move", "swap"],
+    "allowedNetuids": [64],
+    "requireDryRun": true
+  }
+}
+```
+
+Check or normalize `targetAllocations[].weightPct` so the allocation sums to 100.
+
 ## Normal Flow
 
 1. Call `axelot/market-snapshot`.
@@ -138,14 +166,19 @@ With target allocations:
 3. Explain findings in plain language.
 4. If the user provides a coldkey, call `axelot/portfolio-analyze`.
 5. If the user provides or selects a TrustedStake strategy, include it as `strategy`.
-6. If the user asks to trade, call `axelot/risk-preflight`.
-7. If risk-preflight is acceptable, call `axelot/trade-plan`.
-8. Send the returned `intent` to local `tao_dry_run_intent`.
-9. Call local `tao_trade_state` and explain current active intents and remaining budget.
-10. Show the reconstructed call, amount units, limit price, policy verdict, and warnings.
-11. Ask for explicit confirmation unless local policy is `guarded_autopilot`.
-12. If allowed, call local `tao_execute_intent`.
-13. Send returned `txHash` to `axelot/monitor-trade`.
+6. If the user asks to trade, call `axelot/signer-bootstrap`.
+7. If local signer is available, call `axelot/risk-preflight`.
+8. If risk-preflight is acceptable, call `axelot/trade-plan`.
+9. Send the returned `intent` to local `tao_dry_run_intent`.
+10. Call local `tao_trade_state` and explain current active intents and remaining budget.
+11. Show the reconstructed call, amount units, limit price, policy verdict, and warnings.
+12. Ask for explicit confirmation unless local policy is `guarded_autopilot`.
+13. If allowed, call local `tao_execute_intent`.
+14. Send returned `txHash` to `axelot/monitor-trade`.
+
+`coldkey` is optional for `risk-preflight` and `trade-plan` because the local
+signer knows its own coldkey. Include it when available for better portfolio
+context and clearer intent checks.
 
 ## User Questions To Ask Before Trade Mode
 

@@ -130,12 +130,13 @@ app.get('/v1/docs', (_req, res) => {
 Bittensor dTAO trading intelligence via DRAIN payments. This is NOT a chat/LLM provider and does NOT custody or sign TAO wallets.
 
 ## Agent rule
-Start every new user in Learn mode. Move to Monitor only when the user provides a public coldkey. Move to Trade only after the user explicitly asks to trade and configures the local signer. Never execute without \`tao_dry_run_intent\` and explicit user confirmation.
+Start every new user in Learn mode. Move to Monitor only when the user provides a public coldkey. Move to Trade only after the user explicitly asks to trade and configures the local signer. Never execute without \`tao_dry_run_intent\`. Require explicit user confirmation by default; only skip per-trade confirmation when the user has locally configured signer \`REQUIRE_CONFIRM=false\`.
 
 ## Zero-context quick start
-1. Install DRAIN MCP: \`npm install -g drain-mcp\`.
-2. Configure \`DRAIN_PRIVATE_KEY\` in the agent MCP config. The wallet needs USDC + POL on Polygon.
-3. Open a channel:
+1. DRAIN is the Polygon USDC payment channel used to pay this provider. It is unrelated to TAO signing.
+2. Install DRAIN MCP: \`npm install -g drain-mcp\`.
+3. Configure \`DRAIN_PRIVATE_KEY\` in the agent MCP config. The wallet needs USDC + POL on Polygon.
+4. Open a channel:
 \`\`\`
 drain_open_channel({
   "provider": "${drainService.getProviderAddress()}",
@@ -143,8 +144,15 @@ drain_open_channel({
   "duration": "1h"
 })
 \`\`\`
-4. Call this provider with \`drain_chat\`. Put exactly one user message whose \`content\` is a JSON string.
-5. Close with \`drain_cooperative_close(channelId)\` when finished.
+5. Call this provider with \`drain_chat\`. Put exactly one user message whose \`content\` is a JSON string.
+6. Close with \`drain_cooperative_close(channelId)\` when finished.
+
+## First 5 calls for a new autonomous agent
+1. \`GET /health\`
+2. \`GET /v1/models\`
+3. \`GET /v1/schemas\`
+4. Learn mode call: \`axelot/market-snapshot\`
+5. Only when the user asks to trade: \`axelot/signer-bootstrap\`
 
 ## Modes
 - Learn: no wallet, no signing, no risk. Use for education and discovery.
@@ -184,6 +192,8 @@ Use public coldkeys only. Example payloads:
 - Rebalance read-only: \`{"coldkey":"5...","limit":8,"minReserveTao":50}\`
 - Monitor trade: \`{"txHash":"0x...","depth":80}\`
 
+\`axelot/rebalance-loop\` is a monitor/decision pass. If it returns an intent, that intent is only a proposal and still requires the local signer.
+
 ## TrustedStake strategy adapter
 TrustedStake designs strategies; Axelot turns them into agent-readable analysis and non-custodial trade intents. If a TrustedStake API/export is available, pass it as \`strategy\`. Until then, agents can use a manual adapter object:
 \`\`\`json
@@ -210,10 +220,35 @@ TrustedStake designs strategies; Axelot turns them into agent-readable analysis 
 }
 \`\`\`
 
+Autopilot example. Use this exact enum string only when the user opted in locally:
+\`\`\`json
+{
+  "autonomy": {
+    "mode": "guarded_autopilot",
+    "maxTaoPerTrade": 0.01,
+    "maxTaoPerDay": 0.05,
+    "maxTradesPerDay": 5,
+    "minSecondsBetweenTrades": 300,
+    "allowedActions": ["stake", "unstake", "move", "swap"],
+    "allowedNetuids": [64],
+    "requireDryRun": true
+  }
+}
+\`\`\`
+
+Agents should check or normalize \`targetAllocations[].weightPct\` so the strategy allocation sums to 100.
+
 ## Trade mode: non-custodial execution
 Trading plans return semantic \`axelot.trade-intent.v1\` intents for a separate local MCP signer. The provider never receives TAO mnemonics, keyfiles, private keys, passwords, or signed extrinsic hex.
 
-Install the local signer from the public HS58 repo:
+Before any trade-mode setup, call \`axelot/signer-bootstrap\`. If no local signer is available, stop at planning/simulation and do not execute.
+
+Install the local signer from npm:
+\`\`\`bash
+npm install -g axelot-tao-signer-mcp
+\`\`\`
+
+Fallback from the public HS58 repo:
 \`\`\`bash
 git clone https://github.com/Handshake58/HS58.git
 cd HS58/providers/community-axelot/signer-mcp
@@ -228,8 +263,7 @@ Cursor/agent MCP config example:
 {
   "mcpServers": {
     "axelot-tao-signer": {
-      "command": "node",
-      "args": ["/absolute/path/to/HS58/providers/community-axelot/signer-mcp/dist/server.js"],
+      "command": "axelot-tao-signer-mcp",
       "env": {
         "TAO_COLDKEY_MNEMONIC": "your generated or existing low-value TAO wallet mnemonic",
         "SUBTENSOR_ENDPOINT": "wss://entrypoint-finney.opentensor.ai:443",
@@ -248,6 +282,8 @@ Cursor/agent MCP config example:
 }
 \`\`\`
 
+If using the repo fallback instead of npm, set \`command\` to \`node\` and \`args\` to the absolute path of \`HS58/providers/community-axelot/signer-mcp/dist/server.js\`.
+
 Normal-user signer tools:
 - \`tao_generate_wallet\`: create a new sr25519 TAO coldkey if the user has no wallet.
 - \`tao_wallet_status\`: show local coldkey, endpoint, balance, nonce and policy hash.
@@ -258,13 +294,15 @@ Normal-user signer tools:
 Advanced signer tools: \`tao_portfolio_snapshot\`, \`tao_policy_get\`, \`tao_verify_intent\`, \`tao_sign_trade_intent\`, \`tao_submit_signed_extrinsic\`.
 
 Full execution flow:
-1. Call \`axelot/trade-plan\` through DRAIN.
-2. Send the returned \`intent\` to local \`tao_dry_run_intent\`.
-3. Call \`tao_trade_state\` so the agent knows what it is already in and why.
-4. Show the reconstructed call, amount units, limit price and policy verdict to the user.
-5. Only after approval, call local \`tao_execute_intent({ intent, confirm: true })\`.
-6. If the user explicitly configured local \`REQUIRE_CONFIRM=false\`, an autonomous agent may call \`tao_execute_intent\` without \`confirm:true\`, but only inside local signer policy.
-7. Send the returned \`txHash\` to \`axelot/monitor-trade\`.
+1. Call \`axelot/signer-bootstrap\` to get current signer setup instructions.
+2. Call \`axelot/risk-preflight\` through DRAIN.
+3. Call \`axelot/trade-plan\` through DRAIN.
+4. Send the returned \`intent\` to local \`tao_dry_run_intent\`.
+5. Call \`tao_trade_state\` so the agent knows what it is already in and why.
+6. Show the reconstructed call, amount units, limit price and policy verdict to the user.
+7. Only after approval, call local \`tao_execute_intent({ intent, confirm: true })\`.
+8. If the user explicitly configured local \`REQUIRE_CONFIRM=false\`, an autonomous agent may call \`tao_execute_intent({ intent })\`, but only inside local signer policy.
+9. Send the returned \`txHash\` to \`axelot/monitor-trade\`.
 
 ## Autonomous agents
 Clawdbot/Cursor/Codex own scheduling, memory, observability, retries, Taostats enrichment and Dwellir RPC usage. This provider is the intelligence and intent layer. The local signer is the execution gatekeeper.
@@ -288,6 +326,8 @@ Autopilot is local opt-in only:
 \`\`\`
 
 The response includes \`requiresLocalSigner:true\`, local signer metadata and an \`intent\` object. Do not sign provider raw calls; the signer rebuilds allowlisted Subtensor calls from the semantic intent.
+
+\`coldkey\` is optional for \`risk-preflight\` and \`trade-plan\` because the local signer knows its own coldkey. Include \`coldkey\` when available for better portfolio context and clearer intent checks.
 
 ## What to ask before trading
 Ask the user to confirm:

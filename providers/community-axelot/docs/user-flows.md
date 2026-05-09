@@ -5,11 +5,12 @@
 Use this for users who have no wallet connected or only want to understand the
 Bittensor dTAO market.
 
-1. Open a DRAIN channel.
-2. Call `axelot/market-snapshot`.
-3. Call `axelot/opportunity-scan`.
-4. Optionally call `axelot/subnet-analyze` for selected netuids.
-5. Explain liquidity, emissions, moving-price context, friction, and risk.
+1. Check `/health`, `/v1/models`, and `/v1/schemas`.
+2. Open a DRAIN channel.
+3. Call `axelot/market-snapshot`.
+4. Call `axelot/opportunity-scan`.
+5. Optionally call `axelot/subnet-analyze` for selected netuids.
+6. Explain liquidity, emissions, moving-price context, friction, and risk.
 
 No coldkey and no signer are needed.
 
@@ -23,6 +24,8 @@ Use this when the user provides a public coldkey.
 4. Explain concentration, exposure, candidate changes, and risk notes.
 
 Monitor mode must not execute transactions.
+If `rebalance-loop` returns an intent, treat it as a proposal only. Execution
+still requires the local signer.
 
 ## Trade Flow
 
@@ -30,7 +33,7 @@ Use this only after the user explicitly asks to prepare or execute a trade.
 Autonomous agents own scheduling, memory, retries, Taostats/Dwellir enrichment,
 and user-facing reporting.
 
-1. Call `axelot/signer-bootstrap` if the local signer is not configured.
+1. Call `axelot/signer-bootstrap` first. If no local signer is available, stop at planning/simulation.
 2. Ask for max TAO per trade, max slippage, and strategy source.
 3. Call `axelot/risk-preflight`.
 4. Call `axelot/trade-plan` only if the preflight is acceptable.
@@ -43,6 +46,8 @@ and user-facing reporting.
 
 The remote provider must never receive TAO secrets or signed extrinsic hex.
 The signer keeps only bounded current trade state, not an unbounded event log.
+`coldkey` is optional for planning because the local signer knows its own
+coldkey, but include it when available for better context.
 
 ## Phase 2 Data Sources
 
