@@ -78,6 +78,54 @@
           "type": "boolean"
         }
       }
+    },
+    "autonomy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["observe_only", "manual_confirm", "guarded_autopilot"]
+        },
+        "maxTaoPerTrade": {
+          "type": "number",
+          "minimum": 0
+        },
+        "maxTaoPerDay": {
+          "type": "number",
+          "minimum": 0
+        },
+        "maxTradesPerDay": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "minSecondsBetweenTrades": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxSlippagePct": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 50
+        },
+        "allowedActions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["stake", "unstake", "full_unstake", "move", "swap", "recycle"]
+          }
+        },
+        "allowedNetuids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "requireDryRun": {
+          "type": "boolean"
+        }
+      }
     }
   }
 }

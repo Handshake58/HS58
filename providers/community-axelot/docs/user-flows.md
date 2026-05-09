@@ -27,18 +27,22 @@ Monitor mode must not execute transactions.
 ## Trade Flow
 
 Use this only after the user explicitly asks to prepare or execute a trade.
+Autonomous agents own scheduling, memory, retries, Taostats/Dwellir enrichment,
+and user-facing reporting.
 
 1. Call `axelot/signer-bootstrap` if the local signer is not configured.
 2. Ask for max TAO per trade, max slippage, and strategy source.
 3. Call `axelot/risk-preflight`.
 4. Call `axelot/trade-plan` only if the preflight is acceptable.
 5. Send the returned `intent` to local `tao_dry_run_intent`.
-6. Show the reconstructed Subtensor call and local policy verdict.
-7. Ask for explicit user confirmation.
-8. Call local `tao_execute_intent({ intent, confirm: true })`.
-9. Call `axelot/monitor-trade` with the returned `txHash`.
+6. Call local `tao_trade_state` to understand active intents, recent decisions, and remaining daily budget.
+7. Show the reconstructed Subtensor call and local policy verdict.
+8. Ask for explicit user confirmation unless local guarded autopilot is enabled with `REQUIRE_CONFIRM=false`.
+9. Call local `tao_execute_intent({ intent, confirm: true })` in manual mode, or `tao_execute_intent({ intent })` in guarded autopilot.
+10. Call `axelot/monitor-trade` with the returned `txHash`.
 
 The remote provider must never receive TAO secrets or signed extrinsic hex.
+The signer keeps only bounded current trade state, not an unbounded event log.
 
 ## Phase 2 Data Sources
 

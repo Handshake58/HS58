@@ -64,6 +64,21 @@ export const STRATEGY_ADAPTER_SCHEMA: JsonSchema = {
         requireManualConfirm: { type: 'boolean' },
       },
     },
+    autonomy: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        mode: { type: 'string', enum: ['observe_only', 'manual_confirm', 'guarded_autopilot'] },
+        maxTaoPerTrade: numberRange(0),
+        maxTaoPerDay: numberRange(0),
+        maxTradesPerDay: integerRange(0),
+        minSecondsBetweenTrades: integerRange(0),
+        maxSlippagePct: numberRange(0.01, 50),
+        allowedActions: { type: 'array', items: tradeAction },
+        allowedNetuids: { type: 'array', items: integerRange(0) },
+        requireDryRun: { type: 'boolean' },
+      },
+    },
   },
 };
 
@@ -333,6 +348,7 @@ export const OPERATION_SCHEMAS: Record<string, OperationSchema> = {
       mcp: { type: 'object' },
       modes: { type: 'object' },
       strategyPolicyMapping: { type: 'object' },
+      autonomyModes: { type: 'object' },
       cursorMcpConfigExample: { type: 'object' },
       safety: { type: 'array', items: { type: 'string' } },
     }),

@@ -76,6 +76,23 @@ The provider may use this object for recommendations, scoring, and intent
 context. The local signer must still enforce hard limits such as max TAO per
 trade, max slippage, and confirmation requirements.
 
+## Autonomous Agents
+
+Autonomous agents such as Clawdbot own scheduling, state, retries, Taostats
+enrichment, Dwellir RPC usage, and user-facing observability. This provider is
+the intelligence and intent layer, not the daemon.
+
+The local signer exposes `tao_trade_state`, a bounded current-state view for
+agents. It tracks daily budget usage, active submitted intents, and recent
+decisions so agents can explain what they are in and why without reading an
+unbounded log.
+
+Default execution mode is manual confirmation. A user may opt into guarded
+autopilot locally by setting `REQUIRE_CONFIRM=false` on the signer. Even then,
+the signer must enforce local policy limits such as max TAO per trade, max TAO
+per day, max trades per day, cooldown, max slippage, allowed actions, and
+allowed netuids.
+
 ## Non-Custodial Execution
 
 The local `signer-mcp/` package is the only component allowed to hold TAO wallet
@@ -83,9 +100,10 @@ material. Its expected agent flow is:
 
 1. Call provider `axelot/trade-plan`.
 2. Send the returned `intent` to local `tao_dry_run_intent`.
-3. Inspect local policy verdict and reconstructed Subtensor call.
-4. Call `tao_execute_intent` with `confirm:true` after user approval.
-5. Send the returned `txHash` to provider `axelot/monitor-trade`.
+3. Call local `tao_trade_state` to inspect active intents and remaining budget.
+4. Inspect local policy verdict and reconstructed Subtensor call.
+5. Call `tao_execute_intent` with `confirm:true` after user approval, unless guarded autopilot is locally enabled.
+6. Send the returned `txHash` to provider `axelot/monitor-trade`.
 
 For split signing/submission, use local `tao_sign_trade_intent` followed by
 local `tao_submit_signed_extrinsic`. Signed extrinsic hex must stay local and

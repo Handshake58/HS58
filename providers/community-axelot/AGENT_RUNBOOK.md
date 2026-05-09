@@ -17,6 +17,7 @@ wallet stays local and is handled only by `axelot-tao-signer`.
 - Never send TAO mnemonics, keyfiles, private keys, passwords, or signed extrinsic hex to the HS58-Axelot provider.
 - Never execute a trade without first showing the result of `tao_dry_run_intent`.
 - Never call `tao_execute_intent` unless the user explicitly confirms the displayed dry-run.
+- Exception: if the user explicitly configured local `REQUIRE_CONFIRM=false`, you may execute without per-trade confirmation only inside signer policy.
 - Treat provider trade plans as recommendations. Treat local signer policy as enforcement.
 
 ## Modes
@@ -61,6 +62,27 @@ Use:
 Goal: translate a user-approved strategy into a semantic trade intent, verify it
 locally, execute only after confirmation, then monitor the transaction.
 
+## Autonomous Agent Operating Contract
+
+You own scheduling, state, memory, retries, alerts, and user-facing
+observability. Axelot provider owns market intelligence, risk preflight, and
+semantic trade intents. The local signer owns final execution policy and signing.
+
+Use `tao_trade_state` before planning or executing trades. It gives you the
+current bounded local state: daily budget usage, active submitted intents, recent
+decisions, and remaining trade capacity. Use it to explain what you are in and
+why.
+
+Autonomy modes:
+
+- `observe_only`: analyze, monitor, and explain. Never sign.
+- `manual_confirm`: default. Dry-run every intent and ask for user confirmation before `tao_execute_intent`.
+- `guarded_autopilot`: only if the user configured local `REQUIRE_CONFIRM=false`. You may execute without per-trade confirmation, but only inside signer limits such as max TAO per trade, max TAO per day, max trades per day, cooldown, max slippage, allowed actions, and allowed netuids.
+
+Do not maintain an unbounded trade log in context. Use your own memory for
+strategy and scheduling, and use signer `tao_trade_state` for the compact current
+execution state.
+
 ## TrustedStake Strategy Adapter
 
 TrustedStake designs strategy methodology. Axelot interprets strategy data and
@@ -99,6 +121,12 @@ With target allocations:
     "minLiquidityTao": 500,
     "maxTaoPerTrade": 0.01,
     "requireManualConfirm": true
+  },
+  "autonomy": {
+    "mode": "manual_confirm",
+    "maxTaoPerDay": 0.05,
+    "maxTradesPerDay": 5,
+    "requireDryRun": true
   }
 }
 ```
@@ -113,10 +141,11 @@ With target allocations:
 6. If the user asks to trade, call `axelot/risk-preflight`.
 7. If risk-preflight is acceptable, call `axelot/trade-plan`.
 8. Send the returned `intent` to local `tao_dry_run_intent`.
-9. Show the reconstructed call, amount units, limit price, policy verdict, and warnings.
-10. Ask for explicit confirmation.
-11. If confirmed, call local `tao_execute_intent`.
-12. Send returned `txHash` to `axelot/monitor-trade`.
+9. Call local `tao_trade_state` and explain current active intents and remaining budget.
+10. Show the reconstructed call, amount units, limit price, policy verdict, and warnings.
+11. Ask for explicit confirmation unless local policy is `guarded_autopilot`.
+12. If allowed, call local `tao_execute_intent`.
+13. Send returned `txHash` to `axelot/monitor-trade`.
 
 ## User Questions To Ask Before Trade Mode
 

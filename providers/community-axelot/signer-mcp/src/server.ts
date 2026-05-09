@@ -8,6 +8,8 @@ import type { KeyringPair } from '@polkadot/keyring/types';
 import { stringCamelCase } from '@polkadot/util';
 import { cryptoWaitReady, mnemonicGenerate } from '@polkadot/util-crypto';
 import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { config as loadDotenv } from 'dotenv';
 import { z } from 'zod';
 
@@ -21,14 +23,50 @@ type TradeAction = 'stake' | 'unstake' | 'full_unstake' | 'move' | 'swap' | 'rec
 interface LocalPolicy {
   maxTaoPerTrade: number;
   maxTaoPerDay: number;
+  maxTradesPerDay: number;
   maxOpenExposureTao: number;
   maxSlippagePct: number;
+  minSecondsBetweenTrades: number;
   requireConfirm: boolean;
   allowUnprotected: boolean;
   allowRecycleAlpha: boolean;
   allowedProviders: string[];
   allowedActions: TradeAction[];
   allowedNetuids: number[];
+}
+
+interface ActiveIntent {
+  intentId: string;
+  providerId: string;
+  strategyId: string | null;
+  action: TradeAction;
+  netuid: number;
+  fromNetuid: number | null;
+  amountTao: number | null;
+  amountAlphaRao: string | null;
+  reason: string | null;
+  status: 'submitted' | 'failed';
+  txHash: string | null;
+  blockHash: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
+interface RecentDecision {
+  intentId: string;
+  decision: 'submitted' | 'blocked' | 'failed';
+  reason: string;
+  createdAt: string;
+}
+
+interface TradeState {
+  date: string;
+  taoUsedToday: number;
+  tradesToday: number;
+  lastTradeAt: string | null;
+  lastIntentId: string | null;
+  activeIntents: ActiveIntent[];
+  recentDecisions: RecentDecision[];
 }
 
 interface TradeIntent {
@@ -52,6 +90,7 @@ interface TradeIntent {
   preferredExtrinsic?: string;
   riskPolicyHash?: string | null;
   reason?: string;
+  evidence?: Record<string, unknown>;
 }
 
 interface StakePosition {
@@ -84,6 +123,7 @@ const TradeIntentSchema = z.object({
   preferredExtrinsic: z.string().optional(),
   riskPolicyHash: z.string().nullable().optional(),
   reason: z.string().optional(),
+  evidence: z.record(z.unknown()).optional(),
 });
 
 const server = new McpServer({ name: 'axelot-tao-signer', version: '0.1.0' });
@@ -121,8 +161,10 @@ function loadPolicy(): LocalPolicy {
   return {
     maxTaoPerTrade: Number(process.env.MAX_TAO_PER_TRADE ?? 0.25),
     maxTaoPerDay: Number(process.env.MAX_TAO_PER_DAY ?? 1),
+    maxTradesPerDay: Number(process.env.MAX_TRADES_PER_DAY ?? 25),
     maxOpenExposureTao: Number(process.env.MAX_OPEN_EXPOSURE_TAO ?? 2),
     maxSlippagePct: Number(process.env.MAX_SLIPPAGE_PCT ?? 1.5),
+    minSecondsBetweenTrades: Number(process.env.MIN_SECONDS_BETWEEN_TRADES ?? 0),
     requireConfirm: process.env.REQUIRE_CONFIRM !== 'false',
     allowUnprotected: process.env.ALLOW_UNPROTECTED === 'true' || process.env.ALLOW_RESTORE_UNPROTECTED === 'true',
     allowRecycleAlpha: process.env.ALLOW_RECYCLE_ALPHA === 'true',
@@ -134,6 +176,126 @@ function loadPolicy(): LocalPolicy {
 
 function policyHash(policy = loadPolicy()): string {
   return `sha256:${createHash('sha256').update(JSON.stringify(policy)).digest('hex')}`;
+}
+
+function todayKey(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function tradeStatePath(): string {
+  return process.env.TRADE_STATE_PATH ?? './data/trade-state.json';
+}
+
+function emptyTradeState(): TradeState {
+  return {
+    date: todayKey(),
+    taoUsedToday: 0,
+    tradesToday: 0,
+    lastTradeAt: null,
+    lastIntentId: null,
+    activeIntents: [],
+    recentDecisions: [],
+  };
+}
+
+function normalizeTradeState(state: TradeState): TradeState {
+  const today = todayKey();
+  const activeMax = Number(process.env.TRADE_STATE_ACTIVE_LIMIT ?? 20);
+  const recentMax = Number(process.env.TRADE_STATE_RECENT_LIMIT ?? 30);
+  return {
+    ...state,
+    date: today,
+    taoUsedToday: state.date === today ? Number(state.taoUsedToday) || 0 : 0,
+    tradesToday: state.date === today ? Number(state.tradesToday) || 0 : 0,
+    activeIntents: (state.activeIntents ?? []).slice(-activeMax),
+    recentDecisions: (state.recentDecisions ?? []).slice(-recentMax),
+  };
+}
+
+function readTradeState(): TradeState {
+  const path = tradeStatePath();
+  if (!existsSync(path)) return emptyTradeState();
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as TradeState;
+    return normalizeTradeState({ ...emptyTradeState(), ...parsed });
+  } catch {
+    return emptyTradeState();
+  }
+}
+
+function writeTradeState(state: TradeState): void {
+  const path = tradeStatePath();
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify(normalizeTradeState(state), null, 2));
+}
+
+function rememberDecision(state: TradeState, decision: RecentDecision): TradeState {
+  return normalizeTradeState({
+    ...state,
+    recentDecisions: [...state.recentDecisions, decision],
+  });
+}
+
+function extractStrategyId(intent: TradeIntent): string | null {
+  const evidence = intent.evidence;
+  if (!evidence || typeof evidence !== 'object' || Array.isArray(evidence)) return null;
+  const strategy = (evidence as Record<string, unknown>).strategy;
+  if (!strategy || typeof strategy !== 'object' || Array.isArray(strategy)) return null;
+  const strategyId = (strategy as Record<string, unknown>).strategyId;
+  return typeof strategyId === 'string' && strategyId.trim() ? strategyId.trim() : null;
+}
+
+function recordExecution(intent: TradeIntent, result: { success: boolean; txHash?: string; blockHash?: string; error?: string }): TradeState {
+  const state = readTradeState();
+  const now = new Date().toISOString();
+  const amountTao = intent.amountTao ?? 0;
+  const decision: RecentDecision = {
+    intentId: intent.intentId,
+    decision: result.success ? 'submitted' : 'failed',
+    reason: result.success ? (intent.reason ?? 'submitted') : (result.error ?? 'submission failed'),
+    createdAt: now,
+  };
+  const next = rememberDecision({
+    ...state,
+    taoUsedToday: result.success ? state.taoUsedToday + amountTao : state.taoUsedToday,
+    tradesToday: result.success ? state.tradesToday + 1 : state.tradesToday,
+    lastTradeAt: result.success ? now : state.lastTradeAt,
+    lastIntentId: result.success ? intent.intentId : state.lastIntentId,
+    activeIntents: result.success
+      ? [
+          ...state.activeIntents.filter((item) => item.intentId !== intent.intentId),
+          {
+            intentId: intent.intentId,
+            providerId: intent.providerId,
+            strategyId: extractStrategyId(intent),
+            action: intent.action,
+            netuid: intent.netuid,
+            fromNetuid: intent.fromNetuid ?? null,
+            amountTao: intent.amountTao ?? null,
+            amountAlphaRao: intent.amountAlphaRao ?? null,
+            reason: intent.reason ?? null,
+            status: 'submitted',
+            txHash: result.txHash ?? null,
+            blockHash: result.blockHash ?? null,
+            createdAt: now,
+            expiresAt: intent.expiresAt,
+          },
+        ]
+      : state.activeIntents.filter((item) => item.intentId !== intent.intentId),
+  }, decision);
+  writeTradeState(next);
+  return next;
+}
+
+function recordBlocked(intent: TradeIntent, reason: string): TradeState {
+  const next = rememberDecision(readTradeState(), {
+    intentId: intent.intentId,
+    decision: 'blocked',
+    reason,
+    createdAt: new Date().toISOString(),
+  });
+  writeTradeState(next);
+  return next;
 }
 
 async function getApi(): Promise<ApiPromise> {
@@ -240,16 +402,25 @@ function computeLimitPrice(pool: Awaited<ReturnType<typeof getPoolData>>, action
 async function verifyIntent(intentInput: unknown) {
   const intent = TradeIntentSchema.parse(intentInput) as TradeIntent;
   const policy = loadPolicy();
+  const state = readTradeState();
   const coldkey = await getColdkey();
   const warnings: string[] = [];
   const errors: string[] = [];
+  const amountTao = intent.amountTao ?? 0;
 
   if (intent.coldkey && intent.coldkey !== coldkey.address) errors.push('intent coldkey does not match local signer coldkey');
   if (Date.parse(intent.expiresAt) <= Date.now()) errors.push('intent expired');
   if (!policy.allowedProviders.includes(intent.providerId)) errors.push(`provider ${intent.providerId} not allowed`);
   if (!policy.allowedActions.includes(intent.action)) errors.push(`action ${intent.action} not allowed`);
   if (policy.allowedNetuids.length > 0 && !policy.allowedNetuids.includes(intent.netuid)) errors.push(`netuid ${intent.netuid} not allowed`);
-  if (intent.amountTao != null && intent.amountTao > policy.maxTaoPerTrade) errors.push(`amountTao exceeds maxTaoPerTrade ${policy.maxTaoPerTrade}`);
+  if (amountTao > policy.maxTaoPerTrade) errors.push(`amountTao exceeds maxTaoPerTrade ${policy.maxTaoPerTrade}`);
+  if (state.taoUsedToday + amountTao > policy.maxTaoPerDay) errors.push(`daily TAO budget exceeded: ${state.taoUsedToday + amountTao} > ${policy.maxTaoPerDay}`);
+  if (state.tradesToday >= policy.maxTradesPerDay) errors.push(`daily trade count exceeded: ${state.tradesToday} >= ${policy.maxTradesPerDay}`);
+  if (state.lastIntentId === intent.intentId) errors.push('duplicate intentId already executed by this signer');
+  if (policy.minSecondsBetweenTrades > 0 && state.lastTradeAt) {
+    const elapsedSeconds = (Date.now() - Date.parse(state.lastTradeAt)) / 1000;
+    if (elapsedSeconds < policy.minSecondsBetweenTrades) errors.push(`cooldown active: wait ${Math.ceil(policy.minSecondsBetweenTrades - elapsedSeconds)}s`);
+  }
   if (intent.maxSlippagePct > policy.maxSlippagePct) errors.push(`maxSlippagePct exceeds policy max ${policy.maxSlippagePct}`);
   if (intent.action === 'recycle' && !policy.allowRecycleAlpha) errors.push('recycle_alpha is disabled by local policy');
 
@@ -272,6 +443,9 @@ async function verifyIntent(intentInput: unknown) {
     warnings,
     policy,
     policyHash: policyHash(policy),
+    tradeState: state,
+    remainingTaoToday: Math.max(0, policy.maxTaoPerDay - state.taoUsedToday),
+    remainingTradesToday: Math.max(0, policy.maxTradesPerDay - state.tradesToday),
     coldkey: coldkey.address,
     chain: process.env.BITTENSOR_CHAIN ?? 'bittensor-testnet',
     endpoint: process.env.SUBTENSOR_ENDPOINT ?? DEFAULT_ENDPOINT,
@@ -491,6 +665,18 @@ server.tool('tao_portfolio_snapshot', 'Read local coldkey stake positions via Bi
 
 server.tool('tao_policy_get', 'Return local signer policy and policy hash.', {}, async () => ok({ policy: loadPolicy(), policyHash: policyHash() }));
 
+server.tool('tao_trade_state', 'Return bounded local trade state for autonomous agents: active intents, recent decisions, and daily budget usage.', {}, async () => {
+  const policy = loadPolicy();
+  const state = readTradeState();
+  return ok({
+    state,
+    policyHash: policyHash(policy),
+    autonomy: policy.requireConfirm ? 'manual_confirm' : 'guarded_autopilot',
+    remainingTaoToday: Math.max(0, policy.maxTaoPerDay - state.taoUsedToday),
+    remainingTradesToday: Math.max(0, policy.maxTradesPerDay - state.tradesToday),
+  });
+});
+
 server.tool('tao_verify_intent', 'Verify an Axelot trade intent against local wallet state and policy.', {
   intent: z.unknown(),
 }, async ({ intent }) => {
@@ -538,11 +724,18 @@ server.tool('tao_execute_intent', 'Verify, sign, and submit a trade intent local
   confirm: z.boolean().default(false),
   confirmRecycle: z.boolean().default(false),
 }, async ({ intent, confirm, confirmRecycle }) => {
+  let parsed: TradeIntent | null = null;
   try {
-    const parsed = TradeIntentSchema.parse(intent) as TradeIntent;
+    parsed = TradeIntentSchema.parse(intent) as TradeIntent;
     const policy = loadPolicy();
-    if (policy.requireConfirm && !confirm) return err('confirm:true required by local policy');
-    if (parsed.action === 'recycle' && !confirmRecycle) return err('confirmRecycle:true required for recycle_alpha');
+    if (policy.requireConfirm && !confirm) {
+      recordBlocked(parsed, 'confirm:true required by local policy');
+      return err('confirm:true required by local policy');
+    }
+    if (parsed.action === 'recycle' && !confirmRecycle) {
+      recordBlocked(parsed, 'confirmRecycle:true required for recycle_alpha');
+      return err('confirmRecycle:true required for recycle_alpha');
+    }
     let preview: unknown = null;
     let verification: unknown = null;
     const coldkey = await getColdkey();
@@ -552,8 +745,10 @@ server.tool('tao_execute_intent', 'Verify, sign, and submit a trade intent local
       verification = built.verification;
       return built.tx;
     }, coldkey);
-    return ok({ ...result, callPreview: preview, verification });
+    const tradeState = recordExecution(parsed, result);
+    return ok({ ...result, callPreview: preview, verification, tradeState });
   } catch (error) {
+    if (parsed) recordBlocked(parsed, error instanceof Error ? error.message : String(error));
     return err(error instanceof Error ? error.message : String(error));
   }
 });

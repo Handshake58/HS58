@@ -222,7 +222,12 @@ function signerBootstrap(ctx: OperationContext) {
     },
     strategyPolicyMapping: {
       provider: 'Uses optional axelot.strategy-adapter.v1 input for recommendation context.',
-      signer: 'Enforces max trade size, slippage, confirmation, recycle permission, and allowed calls locally.',
+      signer: 'Enforces max trade size, daily budget, trade count, cooldown, slippage, confirmation, recycle permission, and allowed calls locally.',
+    },
+    autonomyModes: {
+      manualConfirm: 'Default. REQUIRE_CONFIRM=true, every execution needs explicit user confirmation.',
+      guardedAutopilot: 'Opt-in local mode. REQUIRE_CONFIRM=false, agent may execute only inside signer policy and bounded trade-state limits.',
+      observeOnly: 'Agent can use provider analysis and tao_trade_state but should not call execution tools.',
     },
     install: {
       repository: 'https://github.com/Handshake58/HS58.git',
@@ -245,9 +250,13 @@ function signerBootstrap(ctx: OperationContext) {
             SUBTENSOR_ENDPOINT: ctx.config.subtensorEndpoint,
             BITTENSOR_CHAIN: ctx.config.bittensorChain,
             MAX_TAO_PER_TRADE: '0.01',
+            MAX_TAO_PER_DAY: '0.05',
+            MAX_TRADES_PER_DAY: '5',
             MAX_SLIPPAGE_PCT: '1.5',
+            MIN_SECONDS_BETWEEN_TRADES: '300',
             REQUIRE_CONFIRM: 'true',
             ALLOW_RECYCLE_ALPHA: 'false',
+            TRADE_STATE_PATH: './data/trade-state.json',
           },
         },
       },
@@ -305,6 +314,7 @@ async function buildIntent(input: Record<string, unknown>, ctx: OperationContext
         taoReserve: pool.taoReserve,
         roundTripBreakEvenPct: amountTao && amountTao > 0 ? (estimateRoundTripBreakEven({ amountTao, poolReserveTao: pool.taoReserve }) / amountTao) * 100 : null,
         orderImpactPct: amountTao ? orderImpactPct(amountTao, pool.taoReserve) : null,
+        strategy: strategySummary(input.strategy),
       }
     : {};
   const base = { action, netuid, fromNetuid, amountTao, delegateHotkey, fromDelegateHotkey, createdAt: now.toISOString() };
@@ -386,7 +396,7 @@ function signerMetadata() {
     localPath: 'providers/community-axelot/signer-mcp',
     installCommand: 'cd providers/community-axelot/signer-mcp && npm install && npm run build',
     defaultSubmit: 'local-only',
-    requiredTools: ['tao_generate_wallet', 'tao_wallet_status', 'tao_portfolio_snapshot', 'tao_verify_intent', 'tao_dry_run_intent', 'tao_sign_trade_intent', 'tao_submit_signed_extrinsic', 'tao_execute_intent'],
+    requiredTools: ['tao_generate_wallet', 'tao_wallet_status', 'tao_portfolio_snapshot', 'tao_policy_get', 'tao_trade_state', 'tao_verify_intent', 'tao_dry_run_intent', 'tao_sign_trade_intent', 'tao_submit_signed_extrinsic', 'tao_execute_intent'],
   };
 }
 

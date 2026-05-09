@@ -13,6 +13,7 @@ optionally submits locally.
 - `tao_generate_wallet`: create a new sr25519 TAO coldkey mnemonic and address.
 - `tao_portfolio_snapshot`: read local coldkey stake positions from chain state.
 - `tao_policy_get`: return the local policy that gates execution.
+- `tao_trade_state`: show bounded local trade state for autonomous agents.
 - `tao_verify_intent`: validate a provider intent without signing.
 - `tao_dry_run_intent`: show the exact reconstructed Subtensor call.
 - `tao_sign_trade_intent`: sign locally and return signed extrinsic hex without submitting.
@@ -55,6 +56,8 @@ npm run generate-wallet
         "SUBTENSOR_ENDPOINT": "wss://entrypoint-finney.opentensor.ai:443",
         "BITTENSOR_CHAIN": "bittensor-finney",
         "MAX_TAO_PER_TRADE": "0.01",
+        "MAX_TAO_PER_DAY": "0.05",
+        "MAX_TRADES_PER_DAY": "5",
         "MAX_SLIPPAGE_PCT": "1.5",
         "REQUIRE_CONFIRM": "true",
         "ALLOW_RECYCLE_ALPHA": "false"
@@ -69,8 +72,9 @@ npm run generate-wallet
 1. Ask `community-axelot` for `axelot/trade-plan`.
 2. Pass the returned `intent` to `tao_dry_run_intent`.
 3. Inspect the reconstructed call and local policy verdict.
-4. Call `tao_execute_intent` with `confirm:true` only after user approval.
-5. Pass the returned `txHash` back to `axelot/monitor-trade`.
+4. Call `tao_trade_state` to see current daily budget, active intents, and recent decisions.
+5. Call `tao_execute_intent` with `confirm:true` only after user approval, unless the user explicitly configured `REQUIRE_CONFIRM=false`.
+6. Pass the returned `txHash` back to `axelot/monitor-trade`.
 
 For two-step execution, call `tao_sign_trade_intent` first, inspect/store the
 signed hex locally, then call `tao_submit_signed_extrinsic`. Do not send signed
@@ -78,6 +82,26 @@ extrinsic hex to the remote provider.
 
 `recycle_alpha` requires both `ALLOW_RECYCLE_ALPHA=true` and
 `confirmRecycle:true`.
+
+## Autonomous Mode
+
+Default mode is manual confirmation. If the user wants a Clawdbot-like agent to
+trade autonomously, they can opt in locally with `REQUIRE_CONFIRM=false`.
+
+Autonomous signing is still bounded by local policy:
+
+- `MAX_TAO_PER_TRADE`
+- `MAX_TAO_PER_DAY`
+- `MAX_TRADES_PER_DAY`
+- `MIN_SECONDS_BETWEEN_TRADES`
+- `MAX_SLIPPAGE_PCT`
+- `ALLOWED_ACTIONS`
+- `ALLOWED_NETUIDS`
+- `ALLOW_RECYCLE_ALPHA`
+
+The signer keeps a small bounded state file at `TRADE_STATE_PATH`. It stores
+daily budget usage, active submitted intents, and recent decisions so an
+autonomous agent can explain what it is in and why. It is not an append-only log.
 
 ## Safety Defaults
 

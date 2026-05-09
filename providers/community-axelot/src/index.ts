@@ -200,6 +200,12 @@ TrustedStake designs strategies; Axelot turns them into agent-readable analysis 
     "thresholdBased": true,
     "maxSlippagePct": 1.5,
     "requireManualConfirm": true
+  },
+  "autonomy": {
+    "mode": "manual_confirm",
+    "maxTaoPerDay": 0.05,
+    "maxTradesPerDay": 5,
+    "requireDryRun": true
   }
 }
 \`\`\`
@@ -229,9 +235,13 @@ Cursor/agent MCP config example:
         "SUBTENSOR_ENDPOINT": "wss://entrypoint-finney.opentensor.ai:443",
         "BITTENSOR_CHAIN": "bittensor-finney",
         "MAX_TAO_PER_TRADE": "0.01",
+        "MAX_TAO_PER_DAY": "0.05",
+        "MAX_TRADES_PER_DAY": "5",
         "MAX_SLIPPAGE_PCT": "1.5",
+        "MIN_SECONDS_BETWEEN_TRADES": "300",
         "REQUIRE_CONFIRM": "true",
-        "ALLOW_RECYCLE_ALPHA": "false"
+        "ALLOW_RECYCLE_ALPHA": "false",
+        "TRADE_STATE_PATH": "./data/trade-state.json"
       }
     }
   }
@@ -241,6 +251,7 @@ Cursor/agent MCP config example:
 Normal-user signer tools:
 - \`tao_generate_wallet\`: create a new sr25519 TAO coldkey if the user has no wallet.
 - \`tao_wallet_status\`: show local coldkey, endpoint, balance, nonce and policy hash.
+- \`tao_trade_state\`: show daily budget usage, active intents and recent decisions for autonomous agents.
 - \`tao_dry_run_intent\`: reconstruct the exact Subtensor call without signing.
 - \`tao_execute_intent\`: verify, sign and submit locally after user approval.
 
@@ -249,9 +260,19 @@ Advanced signer tools: \`tao_portfolio_snapshot\`, \`tao_policy_get\`, \`tao_ver
 Full execution flow:
 1. Call \`axelot/trade-plan\` through DRAIN.
 2. Send the returned \`intent\` to local \`tao_dry_run_intent\`.
-3. Show the reconstructed call, amount units, limit price and policy verdict to the user.
-4. Only after approval, call local \`tao_execute_intent({ intent, confirm: true })\`.
-5. Send the returned \`txHash\` to \`axelot/monitor-trade\`.
+3. Call \`tao_trade_state\` so the agent knows what it is already in and why.
+4. Show the reconstructed call, amount units, limit price and policy verdict to the user.
+5. Only after approval, call local \`tao_execute_intent({ intent, confirm: true })\`.
+6. If the user explicitly configured local \`REQUIRE_CONFIRM=false\`, an autonomous agent may call \`tao_execute_intent\` without \`confirm:true\`, but only inside local signer policy.
+7. Send the returned \`txHash\` to \`axelot/monitor-trade\`.
+
+## Autonomous agents
+Clawdbot/Cursor/Codex own scheduling, memory, observability, retries, Taostats enrichment and Dwellir RPC usage. This provider is the intelligence and intent layer. The local signer is the execution gatekeeper.
+
+Autopilot is local opt-in only:
+- Default: \`REQUIRE_CONFIRM=true\`, user confirms every execution.
+- Guarded autopilot: user sets \`REQUIRE_CONFIRM=false\` locally. Signer still enforces per-trade TAO, daily TAO, max trades/day, cooldown, slippage, allowed actions and allowed netuids.
+- The signer keeps bounded \`trade-state.json\` for current active intents and recent decisions. It is not an append-only log.
 
 ## Trade-plan request example
 \`\`\`json
