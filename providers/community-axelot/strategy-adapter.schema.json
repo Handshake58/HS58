@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "axelot.strategy-adapter.v1",
+  "title": "Axelot Strategy Adapter",
+  "description": "Neutral strategy input for TrustedStake or manual strategy exports. Axelot interprets this data; the local signer enforces execution limits.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["source", "strategyId"],
+  "properties": {
+    "source": {
+      "type": "string",
+      "enum": ["trustedstake", "manual", "custom"]
+    },
+    "strategyId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "strategyVersion": {
+      "type": "string"
+    },
+    "riskClass": {
+      "type": "string",
+      "enum": ["risk_averse", "risk_on", "unknown"]
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["learn", "monitor", "trade"]
+    },
+    "targetAllocations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["netuid", "weightPct"],
+        "properties": {
+          "netuid": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "weightPct": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "delegateHotkey": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "rebalanceCadence": {
+          "type": "string"
+        },
+        "thresholdBased": {
+          "type": "boolean"
+        },
+        "maxSlippagePct": {
+          "type": "number",
+          "minimum": 0.01,
+          "maximum": 50
+        },
+        "minLiquidityTao": {
+          "type": "number",
+          "minimum": 0
+        },
+        "maxTaoPerTrade": {
+          "type": "number",
+          "minimum": 0
+        },
+        "requireManualConfirm": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

@@ -8,18 +8,24 @@ DRAIN micropayments. It never accepts or stores TAO wallet material.
 
 ## Operations
 
-- `axelot/market-snapshot`
-- `axelot/subnet-analyze`
-- `axelot/friction-quote`
-- `axelot/portfolio-analyze`
-- `axelot/opportunity-scan`
-- `axelot/risk-preflight`
-- `axelot/rebalance-loop`
-- `axelot/trade-plan`
-- `axelot/signer-bootstrap`
-- `axelot/monitor-trade`
+- Learn: `axelot/market-snapshot`, `axelot/subnet-analyze`, `axelot/friction-quote`, `axelot/opportunity-scan`.
+- Monitor: `axelot/portfolio-analyze`, read-only `axelot/rebalance-loop`, `axelot/monitor-trade`.
+- Trade: `axelot/risk-preflight`, `axelot/trade-plan`, `axelot/signer-bootstrap`.
 
 Schemas are available from `GET /v1/schemas` and summarized in `CONTRACT.md`.
+Agent instructions live in `AGENT_RUNBOOK.md`, and user onboarding flows live in
+`docs/user-flows.md`.
+
+## Strategy Adapter
+
+Axelot does not need to own the strategy content. TrustedStake or another partner
+can provide strategy data, and agents pass it as `strategy` using
+`axelot.strategy-adapter.v1`.
+
+The schema is exposed from `GET /v1/schemas` and checked into
+`strategy-adapter.schema.json`. The provider treats strategy input as
+recommendation context; the local signer remains the enforcement layer for TAO
+execution limits.
 
 ## Non-Custodial Trading Flow
 
@@ -55,14 +61,15 @@ The companion MCP lives in `signer-mcp/`:
 ```bash
 cd signer-mcp
 npm install
-cp env.example .env
+npm run generate-wallet
 npm run build
 node dist/server.js
 ```
 
 For Cursor MCP config, point the command to `signer-mcp/dist/server.js`. The
-important tools are `tao_dry_run_intent`, `tao_sign_trade_intent`, and
-`tao_execute_intent`.
+normal-user tools are `tao_generate_wallet`, `tao_dry_run_intent`, and
+`tao_execute_intent`. Advanced local-only flows can use
+`tao_sign_trade_intent` plus `tao_submit_signed_extrinsic`.
 
 ## Marketplace Registration
 

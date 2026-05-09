@@ -8,7 +8,7 @@ intelligence and non-custodial trading intents.
 - `GET /health`: provider and Subtensor connection health.
 - `GET /v1/pricing`: flat USDC price per model plus input schemas.
 - `GET /v1/models`: model discovery with input and output schemas.
-- `GET /v1/schemas`: all operation schemas plus `axelot.trade-intent.v1`.
+- `GET /v1/schemas`: all operation schemas plus `axelot.trade-intent.v1` and `axelot.strategy-adapter.v1`.
 - `GET /v1/docs`: human-readable agent instructions.
 - `POST /v1/chat/completions`: paid DRAIN operation execution.
 - `POST /v1/close-channel`: DRAIN channel close authorization.
@@ -16,16 +16,9 @@ intelligence and non-custodial trading intents.
 
 ## Operation Models
 
-- `axelot/market-snapshot`: current on-chain dTAO snapshot.
-- `axelot/subnet-analyze`: current-state analysis for selected netuids.
-- `axelot/friction-quote`: one-way friction and round-trip break-even estimate.
-- `axelot/portfolio-analyze`: read-only coldkey portfolio analysis.
-- `axelot/opportunity-scan`: ranked subnet opportunity scan.
-- `axelot/risk-preflight`: policy-aware preflight plus intent.
-- `axelot/rebalance-loop`: one read-only decision pass and optional intent.
-- `axelot/trade-plan`: signer-ready semantic trade intent.
-- `axelot/signer-bootstrap`: local signer MCP setup instructions.
-- `axelot/monitor-trade`: recent-block transaction hash monitoring.
+- Learn: `axelot/market-snapshot`, `axelot/subnet-analyze`, `axelot/friction-quote`, `axelot/opportunity-scan`.
+- Monitor: `axelot/portfolio-analyze`, read-only `axelot/rebalance-loop`, `axelot/monitor-trade`.
+- Trade: `axelot/risk-preflight`, `axelot/trade-plan`, `axelot/signer-bootstrap`.
 
 ## Request Rules
 
@@ -60,6 +53,28 @@ return semantic `axelot.trade-intent.v1` objects:
 - evidence: current pool data and friction estimates used to build the plan.
 
 The full JSON schema is exposed at `GET /v1/schemas`.
+
+## Strategy Adapter Contract
+
+Provider inputs may include optional `strategy` context matching
+`axelot.strategy-adapter.v1`. The adapter is intentionally neutral so strategy
+providers such as TrustedStake can define methodology while Axelot handles
+agentic analysis and non-custodial execution.
+
+Minimum object:
+
+```json
+{
+  "source": "trustedstake",
+  "strategyId": "bittensor-safe-index",
+  "riskClass": "risk_averse",
+  "mode": "monitor"
+}
+```
+
+The provider may use this object for recommendations, scoring, and intent
+context. The local signer must still enforce hard limits such as max TAO per
+trade, max slippage, and confirmation requirements.
 
 ## Non-Custodial Execution
 

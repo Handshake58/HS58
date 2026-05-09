@@ -161,6 +161,7 @@ async function riskPreflight(input: Record<string, unknown>, ctx: OperationConte
     operation: 'risk-preflight',
     approved: warnings.length === 0,
     warnings,
+    strategy: strategySummary(input.strategy),
     intent,
     signerRequired: true,
     signerDefaultSubmit: 'local-only',
@@ -174,6 +175,7 @@ async function tradePlan(input: Record<string, unknown>, ctx: OperationContext) 
     requiresLocalSigner: true,
     signerDefaultSubmit: 'local-only',
     localSigner: signerMetadata(),
+    strategy: strategySummary(input.strategy),
     intent,
     nextSteps: [
       'Install/configure axelot-tao-signer-mcp locally.',
@@ -201,6 +203,7 @@ async function rebalanceLoop(input: Record<string, unknown>, ctx: OperationConte
     recommendation: intent ? 'consider_intent_after_local_dry_run' : 'research_only_or_hold',
     opportunityScan: scan,
     portfolio,
+    strategy: strategySummary(input.strategy),
     intent,
     requiresLocalSigner: Boolean(intent),
     notes: ['This provider never signs TAO transactions. Use the local signer MCP for dry-run and execution.'],
@@ -212,6 +215,15 @@ function signerBootstrap(ctx: OperationContext) {
     operation: 'signer-bootstrap',
     requiresLocalSigner: true,
     mcp: signerMetadata(),
+    modes: {
+      learn: 'No wallet or signer. Use market-snapshot, subnet-analyze, friction-quote, and opportunity-scan.',
+      monitor: 'Public coldkey only. Use portfolio-analyze and read-only rebalance-loop.',
+      trade: 'Local signer required. Provider returns semantic intents; signer enforces policy and submits locally.',
+    },
+    strategyPolicyMapping: {
+      provider: 'Uses optional axelot.strategy-adapter.v1 input for recommendation context.',
+      signer: 'Enforces max trade size, slippage, confirmation, recycle permission, and allowed calls locally.',
+    },
     install: {
       repository: 'https://github.com/Handshake58/HS58.git',
       packagePath: 'providers/community-axelot/signer-mcp',
@@ -375,6 +387,22 @@ function signerMetadata() {
     installCommand: 'cd providers/community-axelot/signer-mcp && npm install && npm run build',
     defaultSubmit: 'local-only',
     requiredTools: ['tao_generate_wallet', 'tao_wallet_status', 'tao_portfolio_snapshot', 'tao_verify_intent', 'tao_dry_run_intent', 'tao_sign_trade_intent', 'tao_submit_signed_extrinsic', 'tao_execute_intent'],
+  };
+}
+
+function strategySummary(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const strategy = value as Record<string, unknown>;
+  return {
+    schemaVersion: 'axelot.strategy-adapter.v1',
+    source: stringOr(strategy.source, 'custom'),
+    strategyId: stringOr(strategy.strategyId, 'unspecified'),
+    strategyVersion: stringOrNull(strategy.strategyVersion),
+    riskClass: stringOr(strategy.riskClass, 'unknown'),
+    mode: stringOr(strategy.mode, 'monitor'),
+    targetAllocationCount: Array.isArray(strategy.targetAllocations) ? strategy.targetAllocations.length : 0,
+    rulesProvided: Boolean(strategy.rules && typeof strategy.rules === 'object'),
+    enforcement: 'provider-recommendation-only-local-signer-enforces-policy',
   };
 }
 

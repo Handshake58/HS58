@@ -2,10 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import { formatUnits } from 'viem';
 import { BittensorClient } from './bittensor.js';
-import { getModelPricing, getSupportedModels, isModelSupported, isPlanningModel, loadConfig, MODEL_DESCRIPTIONS } from './config.js';
+import { getModelPricing, getSupportedModels, isModelSupported, isPlanningModel, loadConfig, MODEL_DESCRIPTIONS, MODEL_METADATA } from './config.js';
 import { DrainService } from './drain.js';
 import { executeOperation } from './operations.js';
-import { getAllSchemas, getOperationSchema, TRADE_INTENT_SCHEMA } from './schemas.js';
+import { getAllSchemas, getOperationSchema, STRATEGY_ADAPTER_SCHEMA, TRADE_INTENT_SCHEMA } from './schemas.js';
 import { VoucherStorage } from './storage.js';
 
 const config = loadConfig();
@@ -60,6 +60,7 @@ app.get('/v1/pricing', (_req, res) => {
       pricePerRequest: formatUnits(pricing.inputPer1k, 6),
       pricingModel: 'flat',
       description: MODEL_DESCRIPTIONS[id],
+      ...(MODEL_METADATA[id] ?? {}),
       inputSchema: getOperationSchema(id)?.inputSchema ?? null,
     };
   }
@@ -83,6 +84,7 @@ app.get('/v1/models', (_req, res) => {
       created: Math.floor(Date.now() / 1000),
       owned_by: 'community-axelot',
       description: MODEL_DESCRIPTIONS[id],
+      ...(MODEL_METADATA[id] ?? {}),
       inputSchema: getOperationSchema(id)?.inputSchema ?? null,
       outputSchema: getOperationSchema(id)?.outputSchema ?? null,
     })),
@@ -93,6 +95,7 @@ app.get('/v1/schemas', (_req, res) => {
   res.json({
     provider: 'community-axelot',
     intentSchema: TRADE_INTENT_SCHEMA,
+    strategyAdapterSchema: STRATEGY_ADAPTER_SCHEMA,
     operations: getAllSchemas(),
   });
 });
@@ -101,15 +104,35 @@ app.get('/v1/docs', (_req, res) => {
   const rows = getSupportedModels()
     .map((id) => {
       const pricing = getModelPricing(id)!;
-      return `| ${id} | ${MODEL_DESCRIPTIONS[id]} | $${formatUnits(pricing.inputPer1k, 6)} |`;
+      const meta = MODEL_METADATA[id];
+      return `| ${id} | ${meta?.mode ?? 'learn'} | ${meta?.riskLevel ?? 'none'} | ${MODEL_DESCRIPTIONS[id]} | $${formatUnits(pricing.inputPer1k, 6)} |`;
     })
     .join('\n');
+  const marketSnapshotPayload = JSON.stringify({ limit: 20, minReserveTao: 50 });
+  const frictionPayload = JSON.stringify({ netuid: 64, amountTao: 0.25, action: 'stake' });
+  const tradePlanPayload = JSON.stringify({
+    action: 'stake',
+    netuid: 64,
+    amountTao: 0.005,
+    coldkey: '5...',
+    maxSlippagePct: 1.5,
+    ttlSeconds: 300,
+    strategy: {
+      source: 'trustedstake',
+      strategyId: 'bittensor-safe-index',
+      riskClass: 'risk_averse',
+      mode: 'trade',
+    },
+  });
 
   res.type('text/plain').send(`# Community-Axelot — Agent Instructions
 
 Bittensor dTAO trading intelligence via DRAIN payments. This is NOT a chat/LLM provider and does NOT custody or sign TAO wallets.
 
-## Zero-context agent quick start
+## Agent rule
+Start every new user in Learn mode. Move to Monitor only when the user provides a public coldkey. Move to Trade only after the user explicitly asks to trade and configures the local signer. Never execute without \`tao_dry_run_intent\` and explicit user confirmation.
+
+## Zero-context quick start
 1. Install DRAIN MCP: \`npm install -g drain-mcp\`.
 2. Configure \`DRAIN_PRIVATE_KEY\` in the agent MCP config. The wallet needs USDC + POL on Polygon.
 3. Open a channel:
@@ -123,19 +146,24 @@ drain_open_channel({
 4. Call this provider with \`drain_chat\`. Put exactly one user message whose \`content\` is a JSON string.
 5. Close with \`drain_cooperative_close(channelId)\` when finished.
 
+## Modes
+- Learn: no wallet, no signing, no risk. Use for education and discovery.
+- Monitor: read-only coldkey analysis. No signer required.
+- Trade: local signer required. Provider returns semantic intents only; signer enforces policy and submits locally.
+
 ## Operations
-| Model ID | Description | Price |
-|---|---|---|
+| Model ID | Mode | Risk | Description | Price |
+|---|---|---|---|---|
 ${rows}
 
-## Read-only calls
+## Learn mode examples
 Example market snapshot:
 \`\`\`json
 {
   "channelId": "0x...",
   "model": "axelot/market-snapshot",
   "messages": [
-    { "role": "user", "content": "{\"limit\":20,\"minReserveTao\":50}" }
+    { "role": "user", "content": ${JSON.stringify(marketSnapshotPayload)} }
   ]
 }
 \`\`\`
@@ -145,12 +173,38 @@ Example friction quote:
 {
   "model": "axelot/friction-quote",
   "messages": [
-    { "role": "user", "content": "{\"netuid\":64,\"amountTao\":0.25,\"action\":\"stake\"}" }
+    { "role": "user", "content": ${JSON.stringify(frictionPayload)} }
   ]
 }
 \`\`\`
 
-## Non-custodial trading execution
+## Monitor mode
+Use public coldkeys only. Example payloads:
+- Portfolio analysis: \`{"coldkey":"5..."}\`
+- Rebalance read-only: \`{"coldkey":"5...","limit":8,"minReserveTao":50}\`
+- Monitor trade: \`{"txHash":"0x...","depth":80}\`
+
+## TrustedStake strategy adapter
+TrustedStake designs strategies; Axelot turns them into agent-readable analysis and non-custodial trade intents. If a TrustedStake API/export is available, pass it as \`strategy\`. Until then, agents can use a manual adapter object:
+\`\`\`json
+{
+  "source": "trustedstake",
+  "strategyId": "bittensor-safe-index",
+  "riskClass": "risk_averse",
+  "mode": "monitor",
+  "targetAllocations": [
+    { "netuid": 64, "weightPct": 25 }
+  ],
+  "rules": {
+    "rebalanceCadence": "hourly",
+    "thresholdBased": true,
+    "maxSlippagePct": 1.5,
+    "requireManualConfirm": true
+  }
+}
+\`\`\`
+
+## Trade mode: non-custodial execution
 Trading plans return semantic \`axelot.trade-intent.v1\` intents for a separate local MCP signer. The provider never receives TAO mnemonics, keyfiles, private keys, passwords, or signed extrinsic hex.
 
 Install the local signer from the public HS58 repo:
@@ -184,15 +238,13 @@ Cursor/agent MCP config example:
 }
 \`\`\`
 
-Local signer tools:
+Normal-user signer tools:
 - \`tao_generate_wallet\`: create a new sr25519 TAO coldkey if the user has no wallet.
 - \`tao_wallet_status\`: show local coldkey, endpoint, balance, nonce and policy hash.
-- \`tao_portfolio_snapshot\`: read local stake positions.
-- \`tao_policy_get\`: inspect local execution limits.
-- \`tao_verify_intent\`: validate provider intent against local policy.
 - \`tao_dry_run_intent\`: reconstruct the exact Subtensor call without signing.
 - \`tao_execute_intent\`: verify, sign and submit locally after user approval.
-- \`tao_sign_trade_intent\` + \`tao_submit_signed_extrinsic\`: advanced local two-step flow.
+
+Advanced signer tools: \`tao_portfolio_snapshot\`, \`tao_policy_get\`, \`tao_verify_intent\`, \`tao_sign_trade_intent\`, \`tao_submit_signed_extrinsic\`.
 
 Full execution flow:
 1. Call \`axelot/trade-plan\` through DRAIN.
@@ -208,7 +260,7 @@ Full execution flow:
   "messages": [
     {
       "role": "user",
-      "content": "{\"action\":\"stake\",\"netuid\":64,\"amountTao\":0.005,\"coldkey\":\"5...\",\"maxSlippagePct\":1.5,\"ttlSeconds\":300}"
+      "content": ${JSON.stringify(tradePlanPayload)}
     }
   ]
 }
@@ -216,11 +268,13 @@ Full execution flow:
 
 The response includes \`requiresLocalSigner:true\`, local signer metadata and an \`intent\` object. Do not sign provider raw calls; the signer rebuilds allowlisted Subtensor calls from the semantic intent.
 
-## Other input examples
-- Subnet analysis: \`{"netuids":[1,8,64]}\`
-- Portfolio analysis: \`{"coldkey":"5..."}\`
-- Risk preflight: \`{"action":"stake","netuid":64,"amountTao":0.01,"maxTaoPerTrade":0.01}\`
-- Monitor trade: \`{"txHash":"0x...","depth":80}\`
+## What to ask before trading
+Ask the user to confirm:
+1. Coldkey address.
+2. Max TAO per trade.
+3. Max slippage.
+4. Strategy source, e.g. TrustedStake strategy ID or manual allocation.
+5. Whether this is monitor-only or actual execution.
 
 ## Response format
 The assistant message content is a JSON string. Parse it as JSON. Trade planning

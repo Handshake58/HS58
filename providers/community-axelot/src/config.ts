@@ -31,6 +31,19 @@ export const MODEL_DESCRIPTIONS: Record<string, string> = {
   'axelot/monitor-trade': 'Search recent Bittensor blocks for a submitted extrinsic hash and return monitoring context.',
 };
 
+export const MODEL_METADATA: Record<string, { mode: 'learn' | 'monitor' | 'trade'; riskLevel: 'none' | 'read-only' | 'signer-required'; requiresColdkey: boolean; requiresLocalSigner: boolean }> = {
+  'axelot/market-snapshot': { mode: 'learn', riskLevel: 'none', requiresColdkey: false, requiresLocalSigner: false },
+  'axelot/subnet-analyze': { mode: 'learn', riskLevel: 'none', requiresColdkey: false, requiresLocalSigner: false },
+  'axelot/friction-quote': { mode: 'learn', riskLevel: 'none', requiresColdkey: false, requiresLocalSigner: false },
+  'axelot/opportunity-scan': { mode: 'learn', riskLevel: 'none', requiresColdkey: false, requiresLocalSigner: false },
+  'axelot/portfolio-analyze': { mode: 'monitor', riskLevel: 'read-only', requiresColdkey: true, requiresLocalSigner: false },
+  'axelot/rebalance-loop': { mode: 'monitor', riskLevel: 'read-only', requiresColdkey: false, requiresLocalSigner: false },
+  'axelot/monitor-trade': { mode: 'monitor', riskLevel: 'read-only', requiresColdkey: false, requiresLocalSigner: false },
+  'axelot/risk-preflight': { mode: 'trade', riskLevel: 'signer-required', requiresColdkey: false, requiresLocalSigner: true },
+  'axelot/trade-plan': { mode: 'trade', riskLevel: 'signer-required', requiresColdkey: false, requiresLocalSigner: true },
+  'axelot/signer-bootstrap': { mode: 'trade', riskLevel: 'signer-required', requiresColdkey: false, requiresLocalSigner: true },
+};
+
 export function loadModels(): void {
   const prices: [string, number][] = [
     ['axelot/market-snapshot', 0.015],

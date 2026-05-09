@@ -3,6 +3,8 @@ type JsonSchema = Record<string, unknown>;
 interface OperationSchema {
   inputSchema: JsonSchema;
   outputSchema: JsonSchema;
+  mode?: 'learn' | 'monitor' | 'trade';
+  riskLevel?: 'none' | 'read-only' | 'signer-required';
 }
 
 const numberRange = (minimum?: number, maximum?: number): JsonSchema => ({
@@ -23,6 +25,46 @@ const numberOrNull: JsonSchema = { anyOf: [{ type: 'number' }, { type: 'null' }]
 const tradeAction: JsonSchema = {
   type: 'string',
   enum: ['stake', 'unstake', 'full_unstake', 'move', 'swap', 'recycle'],
+};
+
+export const STRATEGY_ADAPTER_SCHEMA: JsonSchema = {
+  $id: 'axelot.strategy-adapter.v1',
+  type: 'object',
+  additionalProperties: true,
+  required: ['source', 'strategyId'],
+  properties: {
+    source: { type: 'string', enum: ['trustedstake', 'manual', 'custom'] },
+    strategyId: { type: 'string', minLength: 1 },
+    strategyVersion: { type: 'string' },
+    riskClass: { type: 'string', enum: ['risk_averse', 'risk_on', 'unknown'] },
+    mode: { type: 'string', enum: ['learn', 'monitor', 'trade'] },
+    targetAllocations: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['netuid', 'weightPct'],
+        properties: {
+          netuid: integerRange(0),
+          weightPct: numberRange(0, 100),
+          delegateHotkey: { type: 'string' },
+          notes: { type: 'string' },
+        },
+      },
+    },
+    rules: {
+      type: 'object',
+      additionalProperties: true,
+      properties: {
+        rebalanceCadence: { type: 'string' },
+        thresholdBased: { type: 'boolean' },
+        maxSlippagePct: numberRange(0.01, 50),
+        minLiquidityTao: numberRange(0),
+        maxTaoPerTrade: numberRange(0),
+        requireManualConfirm: { type: 'boolean' },
+      },
+    },
+  },
 };
 
 export const TRADE_INTENT_SCHEMA: JsonSchema = {
@@ -116,6 +158,8 @@ const stakePosition: JsonSchema = {
 };
 
 const tradeIntentInputProperties: Record<string, unknown> = {
+  mode: { type: 'string', enum: ['learn', 'monitor', 'trade'] },
+  strategy: STRATEGY_ADAPTER_SCHEMA,
   action: tradeAction,
   netuid: integerRange(0),
   fromNetuid: integerRange(0),
@@ -141,6 +185,8 @@ const objectSchema = (properties: Record<string, unknown>, required: string[] = 
 
 export const OPERATION_SCHEMAS: Record<string, OperationSchema> = {
   'axelot/market-snapshot': {
+    mode: 'learn',
+    riskLevel: 'none',
     inputSchema: objectSchema({
       limit: integerRange(1, 100),
       minReserveTao: numberRange(0),
@@ -157,6 +203,8 @@ export const OPERATION_SCHEMAS: Record<string, OperationSchema> = {
     }),
   },
   'axelot/subnet-analyze': {
+    mode: 'learn',
+    riskLevel: 'none',
     inputSchema: objectSchema({
       netuid: integerRange(0),
       netuids: { type: 'array', minItems: 1, maxItems: 25, items: integerRange(0) },
@@ -169,6 +217,8 @@ export const OPERATION_SCHEMAS: Record<string, OperationSchema> = {
     }),
   },
   'axelot/friction-quote': {
+    mode: 'learn',
+    riskLevel: 'none',
     inputSchema: objectSchema({
       netuid: integerRange(0),
       amountTao: numberRange(0),
@@ -189,7 +239,9 @@ export const OPERATION_SCHEMAS: Record<string, OperationSchema> = {
     }),
   },
   'axelot/portfolio-analyze': {
-    inputSchema: objectSchema({ coldkey: { type: 'string', minLength: 1 } }, ['coldkey']),
+    mode: 'monitor',
+    riskLevel: 'read-only',
+    inputSchema: objectSchema({ coldkey: { type: 'string', minLength: 1 }, strategy: STRATEGY_ADAPTER_SCHEMA }, ['coldkey']),
     outputSchema: objectSchema({
       operation: { const: 'portfolio-analyze' },
       coldkey: { type: 'string' },
@@ -203,10 +255,13 @@ export const OPERATION_SCHEMAS: Record<string, OperationSchema> = {
     }),
   },
   'axelot/opportunity-scan': {
+    mode: 'learn',
+    riskLevel: 'none',
     inputSchema: objectSchema({
       limit: integerRange(1, 50),
       minReserveTao: numberRange(0),
       force: { type: 'boolean' },
+      strategy: STRATEGY_ADAPTER_SCHEMA,
     }),
     outputSchema: objectSchema({
       operation: { const: 'opportunity-scan' },
@@ -216,6 +271,8 @@ export const OPERATION_SCHEMAS: Record<string, OperationSchema> = {
     }),
   },
   'axelot/risk-preflight': {
+    mode: 'trade',
+    riskLevel: 'signer-required',
     inputSchema: objectSchema({
       ...tradeIntentInputProperties,
       maxTaoPerTrade: numberRange(0),
@@ -225,12 +282,15 @@ export const OPERATION_SCHEMAS: Record<string, OperationSchema> = {
       operation: { const: 'risk-preflight' },
       approved: { type: 'boolean' },
       warnings: { type: 'array', items: { type: 'string' } },
+      strategy: { anyOf: [{ type: 'object' }, { type: 'null' }] },
       intent: TRADE_INTENT_SCHEMA,
       signerRequired: { type: 'boolean' },
       signerDefaultSubmit: { const: 'local-only' },
     }),
   },
   'axelot/rebalance-loop': {
+    mode: 'monitor',
+    riskLevel: 'read-only',
     inputSchema: objectSchema({
       coldkey: { type: 'string' },
       limit: integerRange(1, 50),
@@ -243,33 +303,43 @@ export const OPERATION_SCHEMAS: Record<string, OperationSchema> = {
       recommendation: { type: 'string' },
       opportunityScan: { type: 'object' },
       portfolio: { anyOf: [{ type: 'object' }, { type: 'null' }] },
+      strategy: { anyOf: [{ type: 'object' }, { type: 'null' }] },
       intent: { anyOf: [TRADE_INTENT_SCHEMA, { type: 'null' }] },
       requiresLocalSigner: { type: 'boolean' },
       notes: { type: 'array', items: { type: 'string' } },
     }),
   },
   'axelot/trade-plan': {
+    mode: 'trade',
+    riskLevel: 'signer-required',
     inputSchema: objectSchema(tradeIntentInputProperties, ['action', 'netuid']),
     outputSchema: objectSchema({
       operation: { const: 'trade-plan' },
       requiresLocalSigner: { type: 'boolean' },
       signerDefaultSubmit: { const: 'local-only' },
       localSigner: { type: 'object' },
+      strategy: { anyOf: [{ type: 'object' }, { type: 'null' }] },
       intent: TRADE_INTENT_SCHEMA,
       nextSteps: { type: 'array', items: { type: 'string' } },
     }),
   },
   'axelot/signer-bootstrap': {
+    mode: 'trade',
+    riskLevel: 'signer-required',
     inputSchema: objectSchema({}),
     outputSchema: objectSchema({
       operation: { const: 'signer-bootstrap' },
       requiresLocalSigner: { type: 'boolean' },
       mcp: { type: 'object' },
+      modes: { type: 'object' },
+      strategyPolicyMapping: { type: 'object' },
       cursorMcpConfigExample: { type: 'object' },
       safety: { type: 'array', items: { type: 'string' } },
     }),
   },
   'axelot/monitor-trade': {
+    mode: 'monitor',
+    riskLevel: 'read-only',
     inputSchema: objectSchema({
       txHash: { type: 'string', pattern: '^0x[a-fA-F0-9]+$' },
       depth: integerRange(1, 500),
