@@ -68,8 +68,12 @@ npm run generate-wallet
         "MAX_TAO_PER_DAY": "0.05",
         "MAX_TRADES_PER_DAY": "5",
         "MAX_SLIPPAGE_PCT": "1.5",
+        "MIN_SECONDS_BETWEEN_TRADES": "300",
         "REQUIRE_CONFIRM": "true",
-        "ALLOW_RECYCLE_ALPHA": "false"
+        "ALLOW_RECYCLE_ALPHA": "false",
+        "ALLOWED_ACTIONS": "stake,unstake,full_unstake,move,swap",
+        "ALLOWED_NETUIDS": "",
+        "TRADE_STATE_PATH": "./data/trade-state.json"
       }
     }
   }
@@ -125,6 +129,7 @@ Strategy autonomy example for agents:
     "maxTaoPerDay": 0.05,
     "maxTradesPerDay": 5,
     "minSecondsBetweenTrades": 300,
+    "maxSlippagePct": 1.5,
     "allowedActions": ["stake", "unstake", "move", "swap"],
     "allowedNetuids": [64],
     "requireDryRun": true

@@ -83,6 +83,9 @@ Agents should check or normalize `targetAllocations[].weightPct` so the strategy
 allocation sums to 100. The schema defines shape; the strategy source or agent
 owns economic consistency.
 
+If DRAIN is unavailable, agents should still use `/v1/schemas` and `/v1/docs`
+for payload validation and stop before paid provider calls.
+
 ## Autonomous Agents
 
 Autonomous agents such as Clawdbot own scheduling, state, retries, Taostats

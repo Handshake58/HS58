@@ -150,6 +150,7 @@ Guarded autopilot example. Use the exact enum string only after local user opt-i
     "maxTaoPerDay": 0.05,
     "maxTradesPerDay": 5,
     "minSecondsBetweenTrades": 300,
+    "maxSlippagePct": 1.5,
     "allowedActions": ["stake", "unstake", "move", "swap"],
     "allowedNetuids": [64],
     "requireDryRun": true
@@ -158,6 +159,10 @@ Guarded autopilot example. Use the exact enum string only after local user opt-i
 ```
 
 Check or normalize `targetAllocations[].weightPct` so the allocation sums to 100.
+
+If DRAIN is not configured or funded, do not block. Validate payloads against
+`/v1/schemas`, run Learn/Monitor in simulation, and stop Trade mode at signer
+bootstrap or dry-run planning.
 
 ## Normal Flow
 

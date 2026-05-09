@@ -273,6 +273,8 @@ function signerBootstrap(ctx: OperationContext) {
             MIN_SECONDS_BETWEEN_TRADES: '300',
             REQUIRE_CONFIRM: 'true',
             ALLOW_RECYCLE_ALPHA: 'false',
+            ALLOWED_ACTIONS: 'stake,unstake,full_unstake,move,swap',
+            ALLOWED_NETUIDS: '',
             TRADE_STATE_PATH: './data/trade-state.json',
           },
         },

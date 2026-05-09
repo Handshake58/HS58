@@ -229,6 +229,7 @@ Autopilot example. Use this exact enum string only when the user opted in locall
     "maxTaoPerDay": 0.05,
     "maxTradesPerDay": 5,
     "minSecondsBetweenTrades": 300,
+    "maxSlippagePct": 1.5,
     "allowedActions": ["stake", "unstake", "move", "swap"],
     "allowedNetuids": [64],
     "requireDryRun": true
@@ -275,6 +276,8 @@ Cursor/agent MCP config example:
         "MIN_SECONDS_BETWEEN_TRADES": "300",
         "REQUIRE_CONFIRM": "true",
         "ALLOW_RECYCLE_ALPHA": "false",
+        "ALLOWED_ACTIONS": "stake,unstake,full_unstake,move,swap",
+        "ALLOWED_NETUIDS": "",
         "TRADE_STATE_PATH": "./data/trade-state.json"
       }
     }
@@ -283,6 +286,8 @@ Cursor/agent MCP config example:
 \`\`\`
 
 If using the repo fallback instead of npm, set \`command\` to \`node\` and \`args\` to the absolute path of \`HS58/providers/community-axelot/signer-mcp/dist/server.js\`.
+
+If DRAIN is not configured or funded, do not block. Validate payloads against \`/v1/schemas\`, use Learn/Monitor simulation, and stop Trade mode at local signer bootstrap or dry-run planning.
 
 Normal-user signer tools:
 - \`tao_generate_wallet\`: create a new sr25519 TAO coldkey if the user has no wallet.
