@@ -6,6 +6,10 @@ intelligence and non-custodial trading intents.
 DRAIN is the Polygon USDC payment channel used to pay this provider. It is not
 used for TAO signing or Bittensor execution.
 
+Agents using DRAIN need a Polygon wallet funded with both USDC and POL: USDC
+pays provider requests, while POL pays gas for channel open, close, and claim
+transactions.
+
 ## Endpoints
 
 - `GET /health`: provider and Subtensor connection health.

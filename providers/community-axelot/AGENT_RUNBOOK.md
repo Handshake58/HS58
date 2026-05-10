@@ -12,6 +12,7 @@ wallet stays local and is handled only by `axelot-tao-signer`.
 ## Hard Rules
 
 - Start in Learn mode for every new user.
+- For DRAIN payments, the Polygon wallet needs USDC for provider payments and POL for gas.
 - Do not request a wallet until the user asks for portfolio monitoring.
 - Do not request a local signer until the user asks to prepare or execute a trade.
 - Never send TAO mnemonics, keyfiles, private keys, passwords, or signed extrinsic hex to the HS58-Axelot provider.
@@ -96,6 +97,10 @@ First 5 calls for a new autonomous agent:
 3. `GET /v1/schemas`
 4. Learn mode call: `axelot/market-snapshot`
 5. Only when the user asks to trade: `axelot/signer-bootstrap`
+
+Before opening a DRAIN channel, confirm the configured Polygon wallet has both
+USDC and POL. USDC pays the provider; POL pays gas for channel open/close/claim
+transactions.
 
 ## TrustedStake Strategy Adapter
 

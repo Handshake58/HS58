@@ -135,7 +135,7 @@ Start every new user in Learn mode. Move to Monitor only when the user provides 
 ## Zero-context quick start
 1. DRAIN is the Polygon USDC payment channel used to pay this provider. It is unrelated to TAO signing.
 2. Install DRAIN MCP: \`npm install -g drain-mcp\`.
-3. Configure \`DRAIN_PRIVATE_KEY\` in the agent MCP config. The wallet needs USDC + POL on Polygon.
+3. Configure \`DRAIN_PRIVATE_KEY\` in the agent MCP config. The same Polygon wallet needs USDC for DRAIN payments and POL for gas. Without POL, channel open/close/claim transactions can fail even if USDC is funded.
 4. Open a channel:
 \`\`\`
 drain_open_channel({

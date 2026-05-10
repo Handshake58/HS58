@@ -6,11 +6,12 @@ Use this for users who have no wallet connected or only want to understand the
 Bittensor dTAO market.
 
 1. Check `/health`, `/v1/models`, and `/v1/schemas`.
-2. Open a DRAIN channel.
-3. Call `axelot/market-snapshot`.
-4. Call `axelot/opportunity-scan`.
-5. Optionally call `axelot/subnet-analyze` for selected netuids.
-6. Explain liquidity, emissions, moving-price context, friction, and risk.
+2. Confirm the DRAIN Polygon wallet has USDC for payments and POL for gas.
+3. Open a DRAIN channel.
+4. Call `axelot/market-snapshot`.
+5. Call `axelot/opportunity-scan`.
+6. Optionally call `axelot/subnet-analyze` for selected netuids.
+7. Explain liquidity, emissions, moving-price context, friction, and risk.
 
 No coldkey and no signer are needed.
 

@@ -35,6 +35,9 @@ execution limits.
 4. Local signer dry-runs, reconstructs an allowlisted Subtensor call, signs, and submits locally.
 5. Provider monitors the returned tx hash.
 
+The DRAIN payment wallet is on Polygon. It needs USDC for provider payments and
+POL for gas; USDC alone is not enough to open, close, or claim payment channels.
+
 The provider never receives TAO mnemonics, keyfiles, private keys, or signed wallet
 secrets. `recycle_alpha` is represented as an intent only and must be gated by the
 local signer policy plus manual confirmation.
