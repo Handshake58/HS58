@@ -287,7 +287,15 @@ Cursor/agent MCP config example:
 
 If using the repo fallback instead of npm, set \`command\` to \`node\` and \`args\` to the absolute path of \`HS58/providers/community-axelot/signer-mcp/dist/server.js\`.
 
-If DRAIN is not configured or funded, do not block. Validate payloads against \`/v1/schemas\`, use Learn/Monitor simulation, and stop Trade mode at local signer bootstrap or dry-run planning.
+## No-DRAIN fallback workflow
+If DRAIN is not configured or funded, paid \`/v1/chat/completions\` calls return \`voucher_required\`. Do not block the user:
+1. Use free discovery endpoints: \`GET /health\`, \`GET /v1/models\`, \`GET /v1/schemas\`, and \`GET /v1/docs\`.
+2. Validate planned request payloads locally against \`/v1/schemas\`.
+3. Install and use the local signer tools that do not require DRAIN: \`tao_generate_wallet\`, \`tao_policy_get\`, \`tao_trade_state\`, and \`tao_wallet_status\`.
+4. Stop before paid provider intelligence calls such as \`axelot/market-snapshot\`, \`axelot/risk-preflight\`, or \`axelot/trade-plan\` until a DRAIN channel is funded.
+5. Never invent market data or execute a trade from fallback-only mode.
+
+\`ALLOWED_NETUIDS=""\` in signer config means no netuid restriction. Set a comma-separated list such as \`64,1,8\` to restrict execution.
 
 Normal-user signer tools:
 - \`tao_generate_wallet\`: create a new sr25519 TAO coldkey if the user has no wallet.
@@ -314,8 +322,9 @@ Clawdbot/Cursor/Codex own scheduling, memory, observability, retries, Taostats e
 
 Autopilot is local opt-in only:
 - Default: \`REQUIRE_CONFIRM=true\`, user confirms every execution.
-- Guarded autopilot: user sets \`REQUIRE_CONFIRM=false\` locally. Signer still enforces per-trade TAO, daily TAO, max trades/day, cooldown, slippage, allowed actions and allowed netuids.
+- Guarded autopilot: user sets \`REQUIRE_CONFIRM=false\` locally. Signer still enforces per-trade TAO, daily TAO, max trades/day, cooldown, slippage, allowed actions and allowed netuids. It also requires a matching local \`tao_dry_run_intent\` for the same \`intentId\` before execution.
 - The signer keeps bounded \`trade-state.json\` for current active intents and recent decisions. It is not an append-only log.
+- If an intent includes \`riskPolicyHash\`, the signer rejects it unless it matches the local \`tao_policy_get\` hash.
 
 ## Trade-plan request example
 \`\`\`json

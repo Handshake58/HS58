@@ -83,8 +83,10 @@ Agents should check or normalize `targetAllocations[].weightPct` so the strategy
 allocation sums to 100. The schema defines shape; the strategy source or agent
 owns economic consistency.
 
-If DRAIN is unavailable, agents should still use `/v1/schemas` and `/v1/docs`
-for payload validation and stop before paid provider calls.
+If DRAIN is unavailable or a paid call returns `voucher_required`, agents should
+still use `/v1/schemas` and `/v1/docs` for payload validation, use local signer
+tools such as `tao_generate_wallet`, `tao_policy_get`, `tao_trade_state`, and
+`tao_wallet_status`, and stop before paid provider calls or execution.
 
 ## Autonomous Agents
 
@@ -102,6 +104,12 @@ autopilot locally by setting `REQUIRE_CONFIRM=false` on the signer. Even then,
 the signer must enforce local policy limits such as max TAO per trade, max TAO
 per day, max trades per day, cooldown, max slippage, allowed actions, and
 allowed netuids.
+
+In guarded autopilot, `tao_execute_intent` requires a matching local
+`tao_dry_run_intent` for the same `intentId`. If an intent includes
+`riskPolicyHash`, the signer rejects it unless it matches the local
+`tao_policy_get` hash. `ALLOWED_NETUIDS=""` means no netuid restriction; use a
+comma-separated list to restrict execution.
 
 Exact autonomy enum example:
 
@@ -125,7 +133,7 @@ material. Its expected agent flow is:
 4. Send the returned `intent` to local `tao_dry_run_intent`.
 5. Call local `tao_trade_state` to inspect active intents and remaining budget.
 6. Inspect local policy verdict and reconstructed Subtensor call.
-7. Call `tao_execute_intent` with `confirm:true` after user approval, unless guarded autopilot is locally enabled.
+7. Call `tao_execute_intent` with `confirm:true` after user approval, unless guarded autopilot is locally enabled and the same `intentId` was dry-run first.
 8. Send the returned `txHash` to provider `axelot/monitor-trade`.
 
 `coldkey` is optional for `risk-preflight` and `trade-plan` because the local

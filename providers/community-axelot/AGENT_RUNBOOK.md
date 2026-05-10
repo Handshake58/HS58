@@ -80,6 +80,11 @@ Autonomy modes:
 - `manual_confirm`: default. Dry-run every intent and ask for user confirmation before `tao_execute_intent`.
 - `guarded_autopilot`: only if the user configured local `REQUIRE_CONFIRM=false`. You may execute without per-trade confirmation, but only inside signer limits such as max TAO per trade, max TAO per day, max trades per day, cooldown, max slippage, allowed actions, and allowed netuids.
 
+In `guarded_autopilot`, the signer still requires a matching local
+`tao_dry_run_intent` for the same `intentId` before `tao_execute_intent`. If an
+intent includes `riskPolicyHash`, the signer rejects it unless it matches local
+`tao_policy_get`.
+
 Do not maintain an unbounded trade log in context. Use your own memory for
 strategy and scheduling, and use signer `tao_trade_state` for the compact current
 execution state.
@@ -159,10 +164,20 @@ Guarded autopilot example. Use the exact enum string only after local user opt-i
 ```
 
 Check or normalize `targetAllocations[].weightPct` so the allocation sums to 100.
+Provider responses include an allocation warning when they detect a mismatch.
 
-If DRAIN is not configured or funded, do not block. Validate payloads against
-`/v1/schemas`, run Learn/Monitor in simulation, and stop Trade mode at signer
-bootstrap or dry-run planning.
+## No-DRAIN Fallback
+
+If DRAIN is not configured or funded and a paid call returns `voucher_required`,
+do not block the user:
+
+1. Use free discovery endpoints: `GET /health`, `GET /v1/models`,
+   `GET /v1/schemas`, and `GET /v1/docs`.
+2. Validate payloads locally against `/v1/schemas`.
+3. Use local signer tools such as `tao_generate_wallet`, `tao_policy_get`,
+   `tao_trade_state`, and `tao_wallet_status`.
+4. Stop before paid provider intelligence calls and before execution. Do not
+   invent market data from fallback-only mode.
 
 ## Normal Flow
 

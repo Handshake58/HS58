@@ -83,6 +83,9 @@ npm run generate-wallet
 If you use the repo fallback instead of npm, set `command` to `node` and `args`
 to the absolute `dist/server.js` path.
 
+`ALLOWED_NETUIDS=""` means all netuids are allowed by local policy. Use a
+comma-separated list such as `64,1,8` to restrict execution to specific subnets.
+
 ## Execution Flow
 
 1. Ask `community-axelot` for `axelot/trade-plan`.
@@ -91,6 +94,10 @@ to the absolute `dist/server.js` path.
 4. Call `tao_trade_state` to see current daily budget, active intents, and recent decisions.
 5. Call `tao_execute_intent` with `confirm:true` only after user approval, unless the user explicitly configured `REQUIRE_CONFIRM=false`.
 6. Pass the returned `txHash` back to `axelot/monitor-trade`.
+
+If `riskPolicyHash` is present on an intent, it must match the local
+`tao_policy_get` hash. In guarded autopilot (`REQUIRE_CONFIRM=false`),
+`tao_execute_intent` also requires that the same `intentId` was dry-run first.
 
 For two-step execution, call `tao_sign_trade_intent` first, inspect/store the
 signed hex locally, then call `tao_submit_signed_extrinsic`. Do not send signed
@@ -112,7 +119,7 @@ Autonomous signing is still bounded by local policy:
 - `MIN_SECONDS_BETWEEN_TRADES`
 - `MAX_SLIPPAGE_PCT`
 - `ALLOWED_ACTIONS`
-- `ALLOWED_NETUIDS`
+- `ALLOWED_NETUIDS` (`""` means no netuid restriction)
 - `ALLOW_RECYCLE_ALPHA`
 
 The signer keeps a small bounded state file at `TRADE_STATE_PATH`. It stores
@@ -140,9 +147,14 @@ Strategy autonomy example for agents:
 This strategy field is advisory context for agents. The actual opt-in is local:
 set `REQUIRE_CONFIRM=false` and keep strict signer limits.
 
+Guarded autopilot still requires a matching local `tao_dry_run_intent` before
+execution. This prevents an autonomous agent from skipping call reconstruction
+and policy preview.
+
 ## Safety Defaults
 
 - No raw provider call data is trusted.
 - Limit prices are recomputed locally from current chain pool state.
 - `limit_price=0` is rejected unless explicitly enabled.
+- `riskPolicyHash` mismatches are rejected when the intent includes a hash.
 - Mnemonics, keyfiles, and private keys never leave the local machine.

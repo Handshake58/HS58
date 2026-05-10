@@ -65,6 +65,8 @@ interface TradeState {
   tradesToday: number;
   lastTradeAt: string | null;
   lastIntentId: string | null;
+  lastDryRunIntentId: string | null;
+  lastDryRunAt: string | null;
   activeIntents: ActiveIntent[];
   recentDecisions: RecentDecision[];
 }
@@ -193,6 +195,8 @@ function emptyTradeState(): TradeState {
     tradesToday: 0,
     lastTradeAt: null,
     lastIntentId: null,
+    lastDryRunIntentId: null,
+    lastDryRunAt: null,
     activeIntents: [],
     recentDecisions: [],
   };
@@ -293,6 +297,16 @@ function recordBlocked(intent: TradeIntent, reason: string): TradeState {
     decision: 'blocked',
     reason,
     createdAt: new Date().toISOString(),
+  });
+  writeTradeState(next);
+  return next;
+}
+
+function recordDryRun(intent: TradeIntent): TradeState {
+  const next = normalizeTradeState({
+    ...readTradeState(),
+    lastDryRunIntentId: intent.intentId,
+    lastDryRunAt: new Date().toISOString(),
   });
   writeTradeState(next);
   return next;
@@ -421,6 +435,8 @@ async function verifyIntent(intentInput: unknown) {
     const elapsedSeconds = (Date.now() - Date.parse(state.lastTradeAt)) / 1000;
     if (elapsedSeconds < policy.minSecondsBetweenTrades) errors.push(`cooldown active: wait ${Math.ceil(policy.minSecondsBetweenTrades - elapsedSeconds)}s`);
   }
+  const localPolicyHash = policyHash(policy);
+  if (intent.riskPolicyHash && intent.riskPolicyHash !== localPolicyHash) errors.push('intent riskPolicyHash does not match local signer policy hash');
   if (intent.maxSlippagePct > policy.maxSlippagePct) errors.push(`maxSlippagePct exceeds policy max ${policy.maxSlippagePct}`);
   if (intent.action === 'recycle' && !policy.allowRecycleAlpha) errors.push('recycle_alpha is disabled by local policy');
 
@@ -442,7 +458,7 @@ async function verifyIntent(intentInput: unknown) {
     errors,
     warnings,
     policy,
-    policyHash: policyHash(policy),
+    policyHash: localPolicyHash,
     tradeState: state,
     remainingTaoToday: Math.max(0, policy.maxTaoPerDay - state.taoUsedToday),
     remainingTradesToday: Math.max(0, policy.maxTradesPerDay - state.tradesToday),
@@ -691,8 +707,10 @@ server.tool('tao_dry_run_intent', 'Dry-run a trade intent and show the exact rec
   intent: z.unknown(),
 }, async ({ intent }) => {
   try {
-    const verification = await verifyIntent(intent);
-    return ok({ ...verification, dryRun: true, willSign: false });
+    const parsed = TradeIntentSchema.parse(intent) as TradeIntent;
+    const verification = await verifyIntent(parsed);
+    const tradeState = verification.valid ? recordDryRun(parsed) : readTradeState();
+    return ok({ ...verification, dryRun: true, willSign: false, tradeState });
   } catch (error) {
     return err(error instanceof Error ? error.message : String(error));
   }
@@ -731,6 +749,13 @@ server.tool('tao_execute_intent', 'Verify, sign, and submit a trade intent local
     if (policy.requireConfirm && !confirm) {
       recordBlocked(parsed, 'confirm:true required by local policy');
       return err('confirm:true required by local policy');
+    }
+    if (!policy.requireConfirm) {
+      const state = readTradeState();
+      if (state.lastDryRunIntentId !== parsed.intentId) {
+        recordBlocked(parsed, 'guarded_autopilot requires a matching tao_dry_run_intent first');
+        return err('guarded_autopilot requires a matching tao_dry_run_intent first');
+      }
     }
     if (parsed.action === 'recycle' && !confirmRecycle) {
       recordBlocked(parsed, 'confirmRecycle:true required for recycle_alpha');

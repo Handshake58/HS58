@@ -153,7 +153,7 @@ async function riskPreflight(input: Record<string, unknown>, ctx: OperationConte
   const impactPct = amountTao > 0 ? orderImpactPct(amountTao, pool.taoReserve) : null;
   const maxTaoPerTrade = numberOr(input.maxTaoPerTrade, Number.POSITIVE_INFINITY);
   const maxOrderImpactPct = numberOr(input.maxOrderImpactPct, 2);
-  const warnings: string[] = [];
+  const warnings: string[] = strategyAllocationWarnings(input.strategy);
   if (amountTao > maxTaoPerTrade) warnings.push(`amountTao ${amountTao} exceeds maxTaoPerTrade ${maxTaoPerTrade}`);
   if (impactPct != null && impactPct > maxOrderImpactPct) warnings.push(`order impact ${impactPct.toFixed(2)}% exceeds maxOrderImpactPct ${maxOrderImpactPct}%`);
   if (intent.action === 'recycle' && input.confirmRecycle !== true) warnings.push('recycle_alpha requires confirmRecycle:true and local signer policy approval');
@@ -176,6 +176,7 @@ async function tradePlan(input: Record<string, unknown>, ctx: OperationContext) 
     signerDefaultSubmit: 'local-only',
     localSigner: signerMetadata(),
     strategy: strategySummary(input.strategy),
+    warnings: strategyAllocationWarnings(input.strategy),
     intent,
     nextSteps: [
       'Install/configure axelot-tao-signer-mcp locally.',
@@ -284,11 +285,13 @@ function signerBootstrap(ctx: OperationContext) {
       'Call tao_wallet_status to confirm the local signer wallet and policy hash.',
       'Call tao_dry_run_intent with the provider intent.',
       'Call tao_trade_state to inspect active intents and remaining budget.',
+      'In guarded autopilot, tao_execute_intent requires the same intentId to have been dry-run first.',
       'Do not call tao_execute_intent unless user confirmation or local guarded autopilot policy allows execution.',
     ],
     safety: [
       'Never send TAO mnemonics, keyfiles, or private keys to the Axelot provider.',
       'The signer reconstructs allowlisted calls locally from semantic trade intents.',
+      'If intent.riskPolicyHash is present, the signer rejects mismatches against the local policy hash.',
       'Default execution mode is local submit; provider monitors tx hashes only.',
       'If the user has no TAO wallet, run tao_generate_wallet or npm run generate-wallet in the signer package.',
     ],
@@ -428,6 +431,7 @@ function signerMetadata() {
 function strategySummary(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const strategy = value as Record<string, unknown>;
+  const allocation = strategyAllocationSummary(strategy);
   return {
     schemaVersion: 'axelot.strategy-adapter.v1',
     source: stringOr(strategy.source, 'custom'),
@@ -435,10 +439,33 @@ function strategySummary(value: unknown) {
     strategyVersion: stringOrNull(strategy.strategyVersion),
     riskClass: stringOr(strategy.riskClass, 'unknown'),
     mode: stringOr(strategy.mode, 'monitor'),
-    targetAllocationCount: Array.isArray(strategy.targetAllocations) ? strategy.targetAllocations.length : 0,
+    targetAllocationCount: allocation.count,
+    targetAllocationWeightPct: allocation.weightPct,
+    allocationWarning: allocation.warning,
     rulesProvided: Boolean(strategy.rules && typeof strategy.rules === 'object'),
     enforcement: 'provider-recommendation-only-local-signer-enforces-policy',
   };
+}
+
+function strategyAllocationWarnings(value: unknown): string[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+  const summary = strategyAllocationSummary(value as Record<string, unknown>);
+  return summary.warning ? [summary.warning] : [];
+}
+
+function strategyAllocationSummary(strategy: Record<string, unknown>): { count: number; weightPct: number | null; warning: string | null } {
+  const allocations = strategy.targetAllocations;
+  if (!Array.isArray(allocations)) return { count: 0, weightPct: null, warning: null };
+  const weightPct = allocations.reduce((sum, item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return sum;
+    const weight = Number((item as Record<string, unknown>).weightPct);
+    return Number.isFinite(weight) ? sum + weight : sum;
+  }, 0);
+  const rounded = Math.round(weightPct * 100) / 100;
+  const warning = allocations.length > 0 && Math.abs(rounded - 100) > 0.01
+    ? `targetAllocations weightPct sums to ${rounded}, expected 100`
+    : null;
+  return { count: allocations.length, weightPct: rounded, warning };
 }
 
 function preferredExtrinsicFor(action: TradeAction, crossHotkey: boolean): string {
