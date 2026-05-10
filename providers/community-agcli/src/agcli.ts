@@ -41,7 +41,20 @@ function execFilePromise(
   });
 }
 
-export function execAgcli(
+// Fallback endpoints used when the primary endpoint refuses connections (exit code 10).
+// Order: try Archive (onfinality, more permissive rate limits) before secondary mirrors.
+const FALLBACK_ENDPOINTS = [
+  'wss://bittensor-finney.api.onfinality.io/public-ws',
+  'wss://entrypoint-finney.opentensor.ai:443',
+];
+
+function isConnectionError(result: AgcliResult): boolean {
+  if (result.exitCode === 10) return true;
+  const stderr = result.stderr || '';
+  return /Failed to connect to subtensor node|connection refused|connection reset/i.test(stderr);
+}
+
+export async function execAgcli(
   agcliPath: string,
   args: string[],
   opts: {
@@ -52,28 +65,44 @@ export function execAgcli(
     password?: string;
   } = {}
 ): Promise<AgcliResult> {
-  const fullArgs = ['--output', 'json', '--batch', '--yes', ...args];
-
-  if (opts.endpoint) {
-    fullArgs.unshift('--endpoint', opts.endpoint);
-  }
-  if (opts.walletName) {
-    fullArgs.unshift('-w', opts.walletName);
-  }
-  if (opts.walletDir) {
-    fullArgs.unshift('--wallet-dir', opts.walletDir);
-  }
+  const buildFullArgs = (endpoint?: string) => {
+    const fullArgs = ['--output', 'json', '--batch', '--yes', ...args];
+    if (endpoint) fullArgs.unshift('--endpoint', endpoint);
+    if (opts.walletName) fullArgs.unshift('-w', opts.walletName);
+    if (opts.walletDir) fullArgs.unshift('--wallet-dir', opts.walletDir);
+    return fullArgs;
+  };
 
   const env: Record<string, string> = { ...process.env as Record<string, string> };
-  if (opts.password) {
-    env['AGCLI_PASSWORD'] = opts.password;
-  }
+  if (opts.password) env['AGCLI_PASSWORD'] = opts.password;
   env['AGCLI_HOTKEY'] = 'default';
 
-  return execFilePromise(agcliPath, fullArgs, {
-    timeout: opts.timeout ?? 30_000,
-    env,
-  });
+  // Build endpoint fallback chain: primary first, then any others.
+  const primary = opts.endpoint;
+  const candidates = primary
+    ? [primary, ...FALLBACK_ENDPOINTS.filter(e => e !== primary)]
+    : [undefined as string | undefined];
+
+  let lastResult: AgcliResult | null = null;
+  for (let i = 0; i < candidates.length; i++) {
+    const endpoint = candidates[i];
+    const result = await execFilePromise(agcliPath, buildFullArgs(endpoint), {
+      timeout: opts.timeout ?? 30_000,
+      env,
+    });
+
+    // Success or non-connection error => return immediately. Only retry on connection failures.
+    if (result.exitCode === 0 || !isConnectionError(result)) {
+      return result;
+    }
+
+    lastResult = result;
+    if (i < candidates.length - 1) {
+      console.warn(`[agcli] endpoint ${endpoint} unreachable (exit ${result.exitCode}), trying fallback ${candidates[i + 1]}`);
+    }
+  }
+
+  return lastResult!;
 }
 
 export async function withTempWallet<T>(

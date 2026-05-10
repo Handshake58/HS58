@@ -9,6 +9,20 @@ import {
 
 const SS58_PATTERN = /^5[A-Za-z0-9]{47}$/;
 
+const ADDRESS_ALIASES = ['address', 'coldkey', 'wallet', 'wallet_address', 'coldkey_address', 'ss58', 'account'] as const;
+
+function resolveAddress(input: any): any {
+  if (input && typeof input === 'object' && !input.address) {
+    for (const alias of ADDRESS_ALIASES) {
+      if (typeof input[alias] === 'string') {
+        input.address = input[alias];
+        break;
+      }
+    }
+  }
+  return input;
+}
+
 function requireSs58(value: any, field: string): string | null {
   if (typeof value !== 'string' || !SS58_PATTERN.test(value)) {
     return `${field} must be a valid ss58 address (starts with 5, 48 chars)`;
@@ -51,7 +65,7 @@ export const readTools: ToolDefinition[] = [
     modelId: 'agcli/balance',
     description: 'Get TAO balance for an address',
     requiresWallet: false,
-    validate: (input) => requireSs58(input.address, 'address'),
+    validate: (input) => { resolveAddress(input); return requireSs58(input.address, 'address'); },
     buildArgs: (input) => buildReadArgs(['balance'], { address: input.address }),
   },
   {
@@ -86,7 +100,7 @@ export const readTools: ToolDefinition[] = [
     modelId: 'agcli/view-portfolio',
     description: 'Cross-subnet stake portfolio with P&L',
     requiresWallet: false,
-    validate: (input) => requireSs58(input.address, 'address'),
+    validate: (input) => { resolveAddress(input); return requireSs58(input.address, 'address'); },
     buildArgs: (input) => buildReadArgs(['view', 'portfolio'], { address: input.address }),
   },
   {
@@ -100,7 +114,7 @@ export const readTools: ToolDefinition[] = [
     modelId: 'agcli/view-history',
     description: 'Transaction history for an address',
     requiresWallet: false,
-    validate: (input) => requireSs58(input.address, 'address'),
+    validate: (input) => { resolveAddress(input); return requireSs58(input.address, 'address'); },
     buildArgs: (input) => buildReadArgs(['view', 'history'], { address: input.address }),
   },
   {
@@ -117,20 +131,27 @@ export const readTools: ToolDefinition[] = [
     validate: (input) => {
       const netuiderr = requireNetuid(input.netuid);
       if (netuiderr) return netuiderr;
-      const fromerr = requireBlockNumber(input.fromBlock, 'fromBlock');
+      // accept both legacy fromBlock/toBlock and new block1/block2
+      const fromVal = input.block1 ?? input.fromBlock;
+      const toVal = input.block2 ?? input.toBlock;
+      const fromerr = requireBlockNumber(fromVal, 'block1');
       if (fromerr) return fromerr;
-      return requireBlockNumber(input.toBlock, 'toBlock');
+      return requireBlockNumber(toVal, 'block2');
     },
     buildArgs: (input) => buildReadArgs(
       ['diff', 'subnet'],
-      { netuid: input.netuid, 'from-block': input.fromBlock, 'to-block': input.toBlock }
+      {
+        netuid: input.netuid,
+        block1: input.block1 ?? input.fromBlock,
+        block2: input.block2 ?? input.toBlock,
+      }
     ),
   },
   {
     modelId: 'agcli/audit',
     description: 'Security audit: proxies, delegate exposure, stake analysis',
     requiresWallet: false,
-    validate: (input) => requireSs58(input.address, 'address'),
+    validate: (input) => { resolveAddress(input); return requireSs58(input.address, 'address'); },
     buildArgs: (input) => buildReadArgs(['audit'], { address: input.address }),
   },
   {
@@ -159,8 +180,8 @@ export const readTools: ToolDefinition[] = [
     modelId: 'agcli/block-info',
     description: 'Get block details: extrinsics, events, timestamp',
     requiresWallet: false,
-    validate: (input) => requireBlockNumber(input.block, 'block'),
-    buildArgs: (input) => buildReadArgs(['block', 'info'], { block: input.block }),
+    validate: (input) => requireBlockNumber(input.number ?? input.block, 'number'),
+    buildArgs: (input) => buildReadArgs(['block', 'info'], { number: input.number ?? input.block }),
   },
   {
     modelId: 'agcli/block-latest',
@@ -180,7 +201,7 @@ export const readTools: ToolDefinition[] = [
     modelId: 'agcli/view-account',
     description: 'Full account explorer: balance, stakes, identity, delegate info',
     requiresWallet: false,
-    validate: (input) => requireSs58(input.address, 'address'),
+    validate: (input) => { resolveAddress(input); return requireSs58(input.address, 'address'); },
     buildArgs: (input) => buildReadArgs(['view', 'account'], { address: input.address }),
   },
   {
@@ -209,7 +230,7 @@ export const readTools: ToolDefinition[] = [
     description: 'Subnet hyperparameters: tempo, immunity period, max neurons, min stake, etc.',
     requiresWallet: false,
     validate: (input) => requireNetuid(input.netuid),
-    buildArgs: (input) => buildReadArgs(['subnet', 'hyperparameters'], { netuid: input.netuid }),
+    buildArgs: (input) => buildReadArgs(['subnet', 'hyperparams'], { netuid: input.netuid }),
   },
   {
     modelId: 'agcli/view-subnet-analytics',
@@ -222,7 +243,7 @@ export const readTools: ToolDefinition[] = [
     modelId: 'agcli/view-staking-analytics',
     description: 'Staking analytics: APY estimates, emission projections',
     requiresWallet: false,
-    validate: (input) => requireSs58(input.address, 'address'),
+    validate: (input) => { resolveAddress(input); return requireSs58(input.address, 'address'); },
     buildArgs: (input) => buildReadArgs(['view', 'staking-analytics'], { address: input.address }),
   },
   {
@@ -258,7 +279,7 @@ export const readTools: ToolDefinition[] = [
     modelId: 'agcli/identity-show',
     description: 'Query on-chain identity for an address',
     requiresWallet: false,
-    validate: (input) => requireSs58(input.address, 'address'),
+    validate: (input) => { resolveAddress(input); return requireSs58(input.address, 'address'); },
     buildArgs: (input) => buildReadArgs(['identity', 'show'], { address: input.address }),
   },
 ];
